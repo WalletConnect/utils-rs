@@ -1,0 +1,29 @@
+# Root Crate
+[package]
+name = "wc"
+version = "0.1.0"
+edition = "2021"
+authors = ["WalletConnect Team"]
+license = "MIT"
+
+[workspace]
+members = [
+    "crates/*",
+]
+
+[features]
+default = []
+full = ["utils"]
+utils = ["dep:utils"]
+
+[dependencies]
+utils = { path = "./crates/utils", optional = true }
+
+[dev-dependencies]
+anyhow = "1"
+structopt = { version = "0.3", default-features = false }
+tokio = { version = "1.22", features = ["full"] }
+
+[[example]]
+name = "metrics"
+required-features = ["utils"]
