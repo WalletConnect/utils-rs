@@ -1,4 +1,4 @@
-pub use {once_cell::sync::Lazy, opentelemetry as otel, task::*};
+pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 use {
     opentelemetry::{
         metrics::{Meter, MeterProvider},
@@ -15,6 +15,7 @@ use {
     },
 };
 
+pub mod future;
 pub mod macros;
 pub mod task;
 

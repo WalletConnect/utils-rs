@@ -1,11 +1,8 @@
 use {
     std::time::Duration,
-    utils::{
-        counter,
-        futures::{FutureExt, StaticFutureExt},
-        gauge,
-        histogram,
-        metrics::{ServiceMetrics, TaskMetrics},
+    wc::{
+        future::{FutureExt, StaticFutureExt},
+        metrics::{counter, gauge, histogram, ServiceMetrics, TaskMetrics},
     },
 };
 

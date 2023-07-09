@@ -1,12 +1,21 @@
 # utils-rs
+
 Rust Utilities for WalletConnect
 
-Examples:
-- [Metrics](examples/metrics.rs)
+## `future`
+
+Convenience `Future` extensions.
+
+## `metrics`
+
+Global service metrics. Currently based on `opentelemetry` SDK and exported in `prometheus` format.
 
 ## `utils`
 
-Provides global service metrics and some convenience `Future` extensions.
+Miscellaneous utils which didn't fit in other crates.
+
+# Examples
+- [Metrics integration](examples/metrics.rs)
 
 # License
 

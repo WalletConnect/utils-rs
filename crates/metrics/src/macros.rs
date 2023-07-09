@@ -4,9 +4,9 @@
 #[macro_export]
 macro_rules! gauge {
     ($name:expr) => {{
-        static METRIC: $crate::metrics::Lazy<$crate::metrics::otel::metrics::ObservableGauge<u64>> =
-            $crate::metrics::Lazy::new(|| {
-                $crate::metrics::ServiceMetrics::meter()
+        static METRIC: $crate::Lazy<$crate::otel::metrics::ObservableGauge<u64>> =
+            $crate::Lazy::new(|| {
+                $crate::ServiceMetrics::meter()
                     .u64_observable_gauge($name)
                     .init()
             });
@@ -19,7 +19,7 @@ macro_rules! gauge {
     }};
 
     ($name:expr, $value:expr, $tags:expr) => {{
-        $crate::gauge!($name).observe(&$crate::metrics::otel::Context::new(), $value as u64, $tags);
+        $crate::gauge!($name).observe(&$crate::otel::Context::new(), $value as u64, $tags);
     }};
 }
 
@@ -28,12 +28,8 @@ macro_rules! gauge {
 #[macro_export]
 macro_rules! histogram {
     ($name:expr) => {{
-        static METRIC: $crate::metrics::Lazy<$crate::metrics::otel::metrics::Histogram<f64>> =
-            $crate::metrics::Lazy::new(|| {
-                $crate::metrics::ServiceMetrics::meter()
-                    .f64_histogram($name)
-                    .init()
-            });
+        static METRIC: $crate::Lazy<$crate::otel::metrics::Histogram<f64>> =
+            $crate::Lazy::new(|| $crate::ServiceMetrics::meter().f64_histogram($name).init());
 
         &METRIC
     }};
@@ -43,11 +39,7 @@ macro_rules! histogram {
     }};
 
     ($name:expr, $value:expr, $tags:expr) => {{
-        $crate::histogram!($name).record(
-            &$crate::metrics::otel::Context::new(),
-            $value as f64,
-            $tags,
-        );
+        $crate::histogram!($name).record(&$crate::otel::Context::new(), $value as f64, $tags);
     }};
 }
 
@@ -56,12 +48,8 @@ macro_rules! histogram {
 #[macro_export]
 macro_rules! counter {
     ($name:expr) => {{
-        static METRIC: $crate::metrics::Lazy<$crate::metrics::otel::metrics::Counter<u64>> =
-            $crate::metrics::Lazy::new(|| {
-                $crate::metrics::ServiceMetrics::meter()
-                    .u64_counter($name)
-                    .init()
-            });
+        static METRIC: $crate::Lazy<$crate::otel::metrics::Counter<u64>> =
+            $crate::Lazy::new(|| $crate::ServiceMetrics::meter().u64_counter($name).init());
 
         &METRIC
     }};
@@ -71,6 +59,6 @@ macro_rules! counter {
     }};
 
     ($name:expr, $value:expr, $tags:expr) => {{
-        $crate::counter!($name).add(&$crate::metrics::otel::Context::new(), $value as u64, $tags);
+        $crate::counter!($name).add(&$crate::otel::Context::new(), $value as u64, $tags);
     }};
 }

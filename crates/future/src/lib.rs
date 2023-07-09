@@ -1,12 +1,11 @@
 pub use tokio_util::sync::CancellationToken;
 use {
-    crate::metrics::TaskMetrics,
     pin_project::pin_project,
     std::{
         future::{ready, Future, Ready},
         pin::Pin,
         task::{Context, Poll},
-        time::{Duration, Instant},
+        time::Duration,
     },
     tokio::{task::JoinHandle, time::Timeout},
     tokio_util::sync::WaitForCancellationFutureOwned,
@@ -134,8 +133,8 @@ pub trait FutureExt {
     ///
     /// ```rust
     /// use {
+    ///     future::{Error, FutureExt},
     ///     std::time::Duration,
-    ///     utils::futures::{Error, FutureExt},
     /// };
     ///
     /// # async fn example() {
@@ -167,9 +166,9 @@ pub trait FutureExt {
     ///
     /// ```rust
     /// use {
+    ///     future::{Error, FutureExt, StaticFutureExt},
     ///     std::time::Duration,
     ///     tokio_util::sync::CancellationToken,
-    ///     utils::futures::{Error, FutureExt, StaticFutureExt},
     /// };
     ///
     /// # async fn example() {
@@ -209,10 +208,7 @@ pub trait FutureExt {
     /// # Example
     ///
     /// ```rust
-    /// use {
-    ///     std::time::Duration,
-    ///     utils::{futures::FutureExt, metrics::OtelTaskMetricsRecorder},
-    /// };
+    /// use {future::FutureExt, metrics::OtelTaskMetricsRecorder, std::time::Duration};
     ///
     /// # async fn example() {
     /// let recorder = OtelTaskMetricsRecorder::new("custom_task").with_name("specific_task_name");
@@ -229,9 +225,10 @@ pub trait FutureExt {
     /// #     example().await;
     /// # }
     /// ```
-    fn with_metrics<R>(self, recorder: R) -> TaskMetricsFuture<Self::Future, R>
+    #[cfg(feature = "metrics")]
+    fn with_metrics<R>(self, recorder: R) -> metrics::TaskMetricsFuture<Self::Future, R>
     where
-        R: TaskMetricsRecorder;
+        R: metrics::TaskMetricsRecorder;
 }
 
 pub trait StaticFutureExt {
@@ -243,7 +240,7 @@ pub trait StaticFutureExt {
     /// # Example
     ///
     /// ```rust
-    /// use {std::time::Duration, utils::futures::StaticFutureExt};
+    /// use {future::StaticFutureExt, std::time::Duration};
     ///
     /// # async fn example() {
     /// let join_handle = async {
@@ -260,6 +257,7 @@ pub trait StaticFutureExt {
     /// #     example().await;
     /// # }
     /// ```
+    #[cfg(feature = "metrics")]
     fn spawn(self, name: &'static str) -> JoinHandle<<Self::Future as Future>::Output>;
 
     /// Same as [`StaticFutureExt::spawn`], but it won't monitor long running
@@ -295,11 +293,12 @@ where
         }
     }
 
-    fn with_metrics<R>(self, recorder: R) -> TaskMetricsFuture<Self::Future, R>
+    #[cfg(feature = "metrics")]
+    fn with_metrics<R>(self, recorder: R) -> metrics::TaskMetricsFuture<Self::Future, R>
     where
-        R: TaskMetricsRecorder,
+        R: metrics::TaskMetricsRecorder,
     {
-        TaskMetricsFuture::new(self, recorder)
+        metrics::TaskMetricsFuture::new(self, recorder)
     }
 }
 
@@ -310,142 +309,15 @@ where
 {
     type Future = T;
 
+    #[cfg(feature = "metrics")]
     fn spawn(self, name: &'static str) -> JoinHandle<<Self::Future as Future>::Output> {
-        static METRICS: TaskMetrics = TaskMetrics::new("spawned_task");
+        static METRICS: metrics::TaskMetrics = metrics::TaskMetrics::new("spawned_task");
 
         tokio::spawn(self.with_metrics(METRICS.with_name(name)))
     }
 
     fn spawn_and_forget(self) -> JoinHandle<<Self::Future as Future>::Output> {
         tokio::spawn(self)
-    }
-}
-
-/// Trait for tracking task execution related metrics with
-/// [`TaskMetricsFuture`].
-///
-/// Most of the time [`OtelTaskMetricsRecorder`] should be used instead of
-/// manual implementations of this trait, unless we want to support multiple
-/// metrics tracking APIs.
-pub trait TaskMetricsRecorder: Send + Sync + 'static {
-    fn record_task_started(&self) {}
-
-    fn record_task_finished(
-        &self,
-        _total_duration: Duration,
-        _poll_duration: Duration,
-        _poll_entries: u64,
-        _completed: bool,
-    ) {
-    }
-}
-
-/// Trait that implements task name tagging using a static string.
-pub trait AsTaskName: Send + Sync + 'static {
-    fn as_task_name(&self) -> &'static str;
-}
-
-impl AsTaskName for () {
-    fn as_task_name(&self) -> &'static str {
-        ""
-    }
-}
-
-impl AsTaskName for &'static str {
-    fn as_task_name(&self) -> &'static str {
-        self
-    }
-}
-
-struct Stats<R: TaskMetricsRecorder> {
-    started: Instant,
-    completed: bool,
-    poll_duration: Duration,
-    poll_entries: u64,
-    recorder: R,
-}
-
-impl<R> Stats<R>
-where
-    R: TaskMetricsRecorder,
-{
-    fn new(recorder: R) -> Self {
-        recorder.record_task_started();
-
-        Self {
-            started: Instant::now(),
-            completed: false,
-            poll_duration: Duration::from_secs(0),
-            poll_entries: 0,
-            recorder,
-        }
-    }
-}
-
-impl<R> Drop for Stats<R>
-where
-    R: TaskMetricsRecorder,
-{
-    fn drop(&mut self) {
-        self.recorder.record_task_finished(
-            self.started.elapsed(),
-            self.poll_duration,
-            self.poll_entries,
-            self.completed,
-        );
-    }
-}
-
-#[pin_project::pin_project]
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct TaskMetricsFuture<F, R>
-where
-    F: Future,
-    R: TaskMetricsRecorder,
-{
-    #[pin]
-    inner: F,
-    stats: Stats<R>,
-}
-
-impl<F, R> TaskMetricsFuture<F, R>
-where
-    F: Future,
-    R: TaskMetricsRecorder,
-{
-    pub fn new(inner: F, recorder: R) -> Self {
-        Self {
-            inner,
-            stats: Stats::new(recorder),
-        }
-    }
-}
-
-impl<F, R> Future for TaskMetricsFuture<F, R>
-where
-    F: Future,
-    R: TaskMetricsRecorder,
-{
-    type Output = F::Output;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let poll_start = Instant::now();
-        let this = self.project();
-
-        let result = match this.inner.poll(cx) {
-            Poll::Ready(result) => {
-                this.stats.completed = true;
-
-                Poll::Ready(result)
-            }
-
-            Poll::Pending => Poll::Pending,
-        };
-
-        this.stats.poll_entries += 1;
-        this.stats.poll_duration += poll_start.elapsed();
-
-        result
     }
 }
 

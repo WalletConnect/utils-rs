@@ -1,6 +1,10 @@
 use {
-    super::{duration_as_millis_f64, otel, ServiceMetrics},
-    crate::futures::{AsTaskName, TaskMetricsRecorder},
+    super::{
+        duration_as_millis_f64,
+        future::{AsTaskName, TaskMetricsRecorder},
+        otel,
+        ServiceMetrics,
+    },
     once_cell::sync::OnceCell,
     opentelemetry::metrics::{Counter, Histogram},
     std::{ops::Deref, sync::Arc, time::Duration},
@@ -8,31 +12,6 @@ use {
 
 /// Wrapper for [`OtelTaskMetricsRecorder`], which can be statically
 /// initialized.
-///
-/// # Example
-///
-/// ```rust
-/// use {
-///     std::time::Duration,
-///     tokio_util::sync::CancellationToken,
-///     utils::{futures::FutureExt, metrics::TaskMetrics},
-/// };
-///
-/// # async fn example() {
-/// static METRICS: TaskMetrics = TaskMetrics::new("rpc_task");
-///
-/// async {
-///     tokio::time::sleep(Duration::from_millis(300)).await;
-/// }
-/// .with_metrics(METRICS.with_name("sleeper"))
-/// .await;
-/// # }
-///
-/// # #[tokio::main]
-/// # async fn main() {
-/// #     example().await;
-/// # }
-/// ```
 pub struct TaskMetrics {
     prefix: &'static str,
     inner: OnceCell<OtelTaskMetricsRecorder<()>>,

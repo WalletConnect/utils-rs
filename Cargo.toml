@@ -13,10 +13,14 @@ members = [
 
 [features]
 default = []
-full = ["utils"]
+full = ["future", "metrics", "utils"]
+future = ["dep:future"]
+metrics = ["dep:metrics", "future/metrics"]
 utils = ["dep:utils"]
 
 [dependencies]
+future = { path = "./crates/future", optional = true }
+metrics = { path = "./crates/metrics", optional = true }
 utils = { path = "./crates/utils", optional = true }
 
 [dev-dependencies]
@@ -26,4 +30,4 @@ tokio = { version = "1.22", features = ["full"] }
 
 [[example]]
 name = "metrics"
-required-features = ["utils"]
+required-features = ["metrics", "future"]
