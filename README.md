@@ -2,6 +2,10 @@
 
 Rust Utilities for WalletConnect
 
+## `collections`
+
+Extensions for collections such as `HashMap`.
+
 ## `future`
 
 Convenience `Future` extensions.
@@ -9,10 +13,6 @@ Convenience `Future` extensions.
 ## `metrics`
 
 Global service metrics. Currently based on `opentelemetry` SDK and exported in `prometheus` format.
-
-## `utils`
-
-Miscellaneous utils which didn't fit in other crates.
 
 ## Examples
 

@@ -13,15 +13,15 @@ members = [
 
 [features]
 default = []
-full = ["future", "metrics", "utils"]
+full = ["collections", "future", "metrics"]
+collections = ["dep:collections"]
 future = ["dep:future"]
 metrics = ["dep:metrics", "future/metrics"]
-utils = ["dep:utils"]
 
 [dependencies]
+collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
-utils = { path = "./crates/utils", optional = true }
 
 [dev-dependencies]
 anyhow = "1"
