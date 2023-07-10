@@ -1,0 +1,11 @@
+[package]
+name = "metrics"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pin-project = "1"
+prometheus = "0.13"
+opentelemetry = { version = "0.19", features = ["metrics", "rt-tokio"] }
+opentelemetry-prometheus = "0.12"
+once_cell = "1.17"
