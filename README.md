@@ -14,9 +14,10 @@ Global service metrics. Currently based on `opentelemetry` SDK and exported in `
 
 Miscellaneous utils which didn't fit in other crates.
 
-# Examples
+## Examples
+
 - [Metrics integration](examples/metrics.rs)
 
-# License
+## License
 
 [MIT](LICENSE)

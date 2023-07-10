@@ -115,16 +115,11 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let poll_start = Instant::now();
         let this = self.project();
+        let result = this.inner.poll(cx);
 
-        let result = match this.inner.poll(cx) {
-            Poll::Ready(result) => {
-                this.stats.completed = true;
-
-                Poll::Ready(result)
-            }
-
-            Poll::Pending => Poll::Pending,
-        };
+        if result.is_ready() {
+            this.stats.completed = true;
+        }
 
         this.stats.poll_entries += 1;
         this.stats.poll_duration += poll_start.elapsed();

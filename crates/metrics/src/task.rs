@@ -131,8 +131,7 @@ where
             .record(&ctx, poll_duration_ms, &attrs);
 
         self.inner.poll_entries.add(&ctx, poll_entries, &attrs);
-
-        self.inner.tasks_finished.add(&ctx, 1, &[task_name_kv]);
+        self.inner.tasks_finished.add(&ctx, 1, &attrs);
     }
 }
 
