@@ -115,9 +115,8 @@ where
     ) {
         let total_duration_ms = duration_as_millis_f64(total_duration);
         let poll_duration_ms = duration_as_millis_f64(poll_duration);
-        let task_name_kv = self.task_name_kv();
         let attrs = [
-            task_name_kv.clone(),
+            self.task_name_kv(),
             otel::KeyValue::new("completed", completed),
         ];
         let ctx = otel::Context::new();
