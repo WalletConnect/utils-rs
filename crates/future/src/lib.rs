@@ -321,7 +321,7 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "metrics"))]
 mod test {
     use {
         super::*,
