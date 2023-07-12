@@ -13,12 +13,21 @@ members = [
 
 [features]
 default = []
-full = ["collections", "future", "metrics"]
+full = [
+  "alloc",
+  "profiler",
+  "collections",
+  "future",
+  "metrics",
+]
+alloc = ["dep:alloc"]
 collections = ["dep:collections"]
 future = ["dep:future"]
-metrics = ["dep:metrics", "future/metrics"]
+metrics = ["dep:metrics", "future/metrics", "alloc/metrics"]
+profiler = ["alloc/profiler"]
 
 [dependencies]
+alloc = { path = "./crates/alloc", optional = true }
 collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
@@ -26,7 +35,15 @@ metrics = { path = "./crates/metrics", optional = true }
 [dev-dependencies]
 anyhow = "1"
 structopt = { version = "0.3", default-features = false }
-tokio = { version = "1.22", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+
+[[example]]
+name = "alloc_profiler"
+required-features = ["alloc", "profiler"]
+
+[[example]]
+name = "alloc_stats"
+required-features = ["alloc", "metrics"]
 
 [[example]]
 name = "metrics"
