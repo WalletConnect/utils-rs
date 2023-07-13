@@ -6,7 +6,7 @@ use {
 
 /// Global `hyper` service task executor that uses the `tokio` runtime and adds
 /// metrics for the executed tasks.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct ServiceTaskExecutor {
     timeout: Option<Duration>,
     metrics_name: &'static str,
@@ -14,10 +14,7 @@ pub struct ServiceTaskExecutor {
 
 impl ServiceTaskExecutor {
     pub fn new() -> Self {
-        Self {
-            timeout: None,
-            metrics_name: "",
-        }
+        Default::default()
     }
 
     /// Optional `task_name` metrics attribute.
