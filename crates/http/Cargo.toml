@@ -1,0 +1,15 @@
+[package]
+name = "http"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+full = ["metrics"]
+metrics = ["dep:metrics", "dep:future"]
+
+[dependencies]
+future = { path = "../future", features = ["metrics"], optional = true }
+metrics = { path = "../metrics", optional = true }
+hyper = "0.14"
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "macros"] }

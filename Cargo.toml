@@ -18,18 +18,21 @@ full = [
   "profiler",
   "collections",
   "future",
+  "http",
   "metrics",
 ]
 alloc = ["dep:alloc"]
 collections = ["dep:collections"]
 future = ["dep:future"]
-metrics = ["dep:metrics", "future/metrics", "alloc/metrics"]
+http = []
+metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
 profiler = ["alloc/profiler"]
 
 [dependencies]
 alloc = { path = "./crates/alloc", optional = true }
 collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
+http = { path = "./crates/http", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
 
 [dev-dependencies]
