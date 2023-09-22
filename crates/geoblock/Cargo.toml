@@ -1,0 +1,20 @@
+[package]
+name = "geoblock"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+#full = ["metrics"]
+#metrics = ["dep:metrics", "dep:future"]
+
+[dependencies]
+axum = "0.6.1"
+thiserror = "1.0"
+hyper = "0.14"
+tower = "0.4.13"
+tower-layer = "0.3.2"
+pin-project = "1.0.12"
+futures-core = "0.3.28"
+http-body = "0.4.5"
+geoip = { git = "https://github.com/WalletConnect/geoip.git", tag = "0.2.0"}
