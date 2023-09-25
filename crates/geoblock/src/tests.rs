@@ -1,5 +1,5 @@
 use {
-    crate::geoip,
+    crate::{geoip, BlockingPolicy, GeoBlockLayer},
     hyper::{Body, Request, Response, StatusCode},
     std::{
         convert::Infallible,
@@ -36,12 +36,14 @@ async fn test_blocked_country() {
         geoip::local::LocalResolver::new(|caller| resolve_ip(caller));
     let blocked_countries = vec!["Derkaderkastan".into(), "Quran".into(), "Tristan".into()];
 
-    let geoblock =
-        crate::GeoBlockLayer::new(resolver, blocked_countries, crate::MissingCountry::Allow);
+    let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
 
     let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
 
-    let request = Request::builder().body(Body::empty()).unwrap();
+    let request = Request::builder()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .body(Body::empty())
+        .unwrap();
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
 
@@ -54,14 +56,16 @@ async fn test_non_blocked_country() {
         geoip::local::LocalResolver::new(|caller| resolve_ip(caller));
     let blocked_countries = vec!["Quran".into(), "Tristan".into()];
 
-    let geoblock =
-        crate::GeoBlockLayer::new(resolver, blocked_countries, crate::MissingCountry::Allow);
+    let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
 
     let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
 
-    let request = Request::builder().body(Body::empty()).unwrap();
+    let request = Request::builder()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .body(Body::empty())
+        .unwrap();
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
 
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status(), StatusCode::OK);
 }
