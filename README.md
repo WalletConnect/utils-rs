@@ -26,6 +26,12 @@ Global service metrics. Currently based on `opentelemetry` SDK and exported in `
 
 Tower middleware for blocking requests based on clients' IP origin.
 
+Note: this middleware requires you to use
+[Router::into_make_service_with_connect_info](https://docs.rs/axum/latest/axum/struct.Router.html#method.into_make_service_with_connect_info)
+to run your app otherwise it will fail at runtime.
+
+See [Router::into_make_service_with_connect_info](https://docs.rs/axum/latest/axum/struct.Router.html#method.into_make_service_with_connect_info) for more details.
+
 ## Examples
 
 - [Metrics integration](examples/metrics.rs). Prints service metrics in the default (`prometheus`) format.

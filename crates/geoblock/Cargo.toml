@@ -5,11 +5,11 @@ edition = "2021"
 
 [features]
 default = []
-#full = ["metrics"]
-#metrics = ["dep:metrics", "dep:future"]
+full = ["tracing"]
+tracing = ["dep:tracing"]
 
 [dependencies]
-axum = "0.6.1"
+axum = "0.6"
 thiserror = "1.0"
 hyper = "0.14"
 tower = "0.4.13"
@@ -18,3 +18,8 @@ pin-project = "1.0.12"
 futures-core = "0.3.28"
 http-body = "0.4.5"
 geoip = { git = "https://github.com/WalletConnect/geoip.git", tag = "0.2.0"}
+tracing = { version = "0.1", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.6.1"

@@ -1,9 +1,15 @@
-// Middleware which adds geo-location IP blocking.
-
+/// Middleware which adds geo-location IP blocking.
+///
+/// Note: this middleware requires you to use
+/// [Router::into_make_service_with_connect_info](https://docs.rs/axum/latest/axum/struct.Router.html#method.into_make_service_with_connect_info)
+/// to run your app otherwise it will fail at runtime.
+///
+/// See [Router::into_make_service_with_connect_info](https://docs.rs/axum/latest/axum/struct.Router.html#method.into_make_service_with_connect_info) for more details.
 pub use geoip;
+#[cfg(feature = "tracing")]
+use tracing::{error, info};
 use {
-    crate::errors::GeoBlockError,
-    axum::extract::ConnectInfo,
+    axum::{extract::ConnectInfo, http::HeaderMap},
     geoip::GeoIpResolver,
     http_body::Body,
     hyper::{Request, Response, StatusCode},
@@ -12,12 +18,45 @@ use {
         future::Future,
         net::{IpAddr, SocketAddr},
         pin::Pin,
+        sync::Arc,
         task::{Context, Poll},
     },
+    thiserror::Error,
     tower::{Layer, Service},
 };
 
-pub mod errors;
+#[cfg(test)]
+mod tests;
+
+/// Values used to configure the middleware behavior when country information
+/// could not be retrieved.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MissingCountry {
+    Allow,
+    Block,
+}
+
+#[derive(Debug, Error)]
+pub enum GeoBlockError {
+    #[error("Country is blocked: {country}")]
+    BlockedCountry { country: Arc<str> },
+
+    #[error("Unable to extract IP address")]
+    UnableToExtractIPAddress,
+
+    #[error("Unable to extract geo data from IP address")]
+    UnableToExtractGeoData,
+
+    #[error("Country could not be found in database")]
+    CountryNotFound,
+
+    #[error("Other Error")]
+    Other {
+        code: StatusCode,
+        msg: Option<String>,
+        headers: Option<HeaderMap>,
+    },
+}
 
 /// Layer that applies the GeoBlock middleware which blocks requests base on IP
 /// geo-location.
@@ -27,7 +66,8 @@ pub struct GeoBlockLayer<T>
 where
     T: GeoIpResolver,
 {
-    blocked_countries: Vec<String>,
+    missing_country: MissingCountry,
+    blocked_countries: Vec<Arc<str>>,
     geoip: T,
 }
 
@@ -35,8 +75,13 @@ impl<T> GeoBlockLayer<T>
 where
     T: GeoIpResolver,
 {
-    pub fn new(geoip: T, blocked_countries: Vec<String>) -> Self {
+    pub fn new(
+        geoip: T,
+        blocked_countries: Vec<Arc<str>>,
+        missing_country: MissingCountry,
+    ) -> Self {
         Self {
+            missing_country,
             blocked_countries,
             geoip,
         }
@@ -50,7 +95,12 @@ where
     type Service = GeoBlock<S, T>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        GeoBlock::new(inner, self.geoip.clone(), self.blocked_countries.clone())
+        GeoBlock::new(
+            inner,
+            self.geoip.clone(),
+            self.blocked_countries.clone(),
+            self.missing_country,
+        )
     }
 }
 
@@ -60,7 +110,8 @@ where
     R: GeoIpResolver,
 {
     inner: S,
-    blocked_countries: Vec<String>,
+    missing_country: MissingCountry,
+    blocked_countries: Vec<Arc<str>>,
     geoip: R,
 }
 
@@ -68,9 +119,15 @@ impl<S, R> GeoBlock<S, R>
 where
     R: GeoIpResolver,
 {
-    fn new(inner: S, geoip: R, blocked_countries: Vec<String>) -> Self {
+    fn new(
+        inner: S,
+        geoip: R,
+        blocked_countries: Vec<Arc<str>>,
+        missing_country: MissingCountry,
+    ) -> Self {
         Self {
             inner,
+            missing_country,
             blocked_countries,
             geoip,
         }
@@ -84,21 +141,45 @@ where
     }
 
     fn check_caller(&self, caller: IpAddr) -> Result<(), GeoBlockError> {
-        let geo_data = self
+        let country = match self
             .geoip
             .lookup_geo_data(caller)
-            .map_err(|_| GeoBlockError::UnableToExtractGeoData)?;
-
-        // TODO: let configure how to handle missing country
-        let country = geo_data
-            .country
-            .ok_or(GeoBlockError::CountryNotFound)?
-            .to_lowercase();
+            .map_err(|_| GeoBlockError::UnableToExtractGeoData)
+        {
+            Ok(geo_data) => match geo_data.country {
+                None if self.missing_country == MissingCountry::Allow => {
+                    #[cfg(feature = "tracing")]
+                    {
+                        info!("Country not found, but allowed");
+                    }
+                    return Ok(());
+                }
+                None => {
+                    #[cfg(feature = "tracing")]
+                    {
+                        info!("Country not found");
+                    }
+                    return Err(GeoBlockError::CountryNotFound);
+                }
+                Some(country) => country,
+            },
+            Err(_e) => {
+                return if self.missing_country == MissingCountry::Allow {
+                    Ok(())
+                } else {
+                    #[cfg(feature = "tracing")]
+                    {
+                        error!("Unable to extract geo data from IP address: {}", _e);
+                    }
+                    Err(GeoBlockError::UnableToExtractGeoData)
+                }
+            }
+        };
 
         let is_blocked = self
             .blocked_countries
             .iter()
-            .any(|blocked_country| blocked_country == &country);
+            .any(|blocked_country| *blocked_country == country);
 
         if is_blocked {
             Err(GeoBlockError::BlockedCountry { country })
@@ -126,13 +207,26 @@ where
         match self.extract_ip(&req) {
             Ok(ip_addr) => match self.check_caller(ip_addr) {
                 Ok(_) => ResponseFuture::future(self.inner.call(req)),
-                Err(_e) => {
+                Err(GeoBlockError::BlockedCountry { country: _country }) => {
                     let mut res = Response::new(ResBody::default());
                     *res.status_mut() = StatusCode::UNAUTHORIZED;
                     ResponseFuture::invalid_ip(res)
                 }
+                Err(_e) => {
+                    let mut res = Response::new(ResBody::default());
+                    *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                    ResponseFuture::invalid_ip(res)
+                }
             },
             Err(_e) => {
+                if self.missing_country == MissingCountry::Allow {
+                    #[cfg(feature = "tracing")]
+                    {
+                        error!("Unable to extract client IP address: {}", _e);
+                    }
+                    return ResponseFuture::future(self.inner.call(req));
+                }
+
                 let mut res = Response::new(ResBody::default());
                 *res.status_mut() = StatusCode::UNAUTHORIZED;
                 ResponseFuture::invalid_ip(res)

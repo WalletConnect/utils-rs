@@ -1,5 +1,5 @@
 use {
-    geoblock::geoip::GeoData,
+    geoblock::{geoip::GeoData, MissingCountry},
     hyper::{Body, Request, Response, StatusCode},
     std::{
         convert::Infallible,
@@ -34,13 +34,9 @@ fn resolve_ip(caller: IpAddr) -> GeoData {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resolver: LocalResolver = LocalResolver::new(|caller| resolve_ip(caller));
-    let blocked_countries = vec![
-        "Derkaderkastan".to_string(),
-        "Quran".to_string(),
-        "Tristan".to_string(),
-    ];
+    let blocked_countries = vec!["Derkaderkastan".into(), "Quran".into(), "Tristan".into()];
 
-    let geoblock = GeoBlockLayer::new(resolver, blocked_countries);
+    let geoblock = GeoBlockLayer::new(resolver, blocked_countries, MissingCountry::Allow);
 
     let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
 
