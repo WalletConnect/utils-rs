@@ -16,7 +16,6 @@ use {
         future::Future,
         net::IpAddr,
         pin::Pin,
-        sync::Arc,
         task::{Context, Poll},
     },
     thiserror::Error,
@@ -61,7 +60,7 @@ pub struct GeoBlockLayer<R>
 where
     R: GeoIpResolver,
 {
-    blocked_countries: Vec<Arc<str>>,
+    blocked_countries: Vec<String>,
     ip_resolver: R,
     blocking_policy: BlockingPolicy,
 }
@@ -72,7 +71,7 @@ where
 {
     pub fn new(
         ip_resolver: R,
-        blocked_countries: Vec<Arc<str>>,
+        blocked_countries: Vec<String>,
         blocking_policy: BlockingPolicy,
     ) -> Self {
         Self {
@@ -108,7 +107,7 @@ where
     R: GeoIpResolver,
 {
     inner: S,
-    blocked_countries: Vec<Arc<str>>,
+    blocked_countries: Vec<String>,
     ip_resolver: R,
     blocking_policy: BlockingPolicy,
 }
@@ -120,7 +119,7 @@ where
     pub fn new(
         inner: S,
         ip_resolver: R,
-        blocked_countries: Vec<Arc<str>>,
+        blocked_countries: Vec<String>,
         blocking_policy: BlockingPolicy,
     ) -> Self {
         Self {
@@ -150,7 +149,7 @@ where
         if self
             .blocked_countries
             .iter()
-            .any(|blocked_country| *blocked_country == country)
+            .any(|blocked_country| *blocked_country == *country)
         {
             Err(GeoBlockError::Blocked)
         } else {
