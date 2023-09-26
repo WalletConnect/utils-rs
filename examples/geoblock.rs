@@ -16,15 +16,15 @@ async fn handle(_request: Request<Body>) -> Result<Response<Body>, Infallible> {
 fn resolve_ip(caller: IpAddr) -> GeoData {
     if IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)) == caller {
         GeoData {
-            continent: Some("Asia".to_string().into()),
-            country: Some("Derkaderkastan".to_string().into()),
+            continent: Some("NA".to_string().into()),
+            country: Some("CU".to_string().into()),
             region: None,
             city: None,
         }
     } else {
         GeoData {
-            continent: Some("North America".to_string().into()),
-            country: Some("United States".to_string().into()),
+            continent: Some("NA".to_string().into()),
+            country: Some("US".to_string().into()),
             region: None,
             city: None,
         }
@@ -34,7 +34,7 @@ fn resolve_ip(caller: IpAddr) -> GeoData {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resolver: LocalResolver = LocalResolver::new(|caller| resolve_ip(caller));
-    let blocked_countries = vec!["Derkaderkastan".into(), "Quran".into(), "Tristan".into()];
+    let blocked_countries = vec!["CU".into(), "IR".into(), "KP".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
 
