@@ -32,8 +32,7 @@ fn resolve_ip(caller: IpAddr) -> geoip::GeoData {
 
 #[tokio::test]
 async fn test_blocked_country() {
-    let resolver: geoip::local::LocalResolver =
-        geoip::local::LocalResolver::new(|caller| resolve_ip(caller));
+    let resolver: geoip::local::LocalResolver = geoip::local::LocalResolver::new(resolve_ip);
     let blocked_countries = vec!["Derkaderkastan".into(), "Quran".into(), "Tristan".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
@@ -52,8 +51,7 @@ async fn test_blocked_country() {
 
 #[tokio::test]
 async fn test_non_blocked_country() {
-    let resolver: geoip::local::LocalResolver =
-        geoip::local::LocalResolver::new(|caller| resolve_ip(caller));
+    let resolver: geoip::local::LocalResolver = geoip::local::LocalResolver::new(resolve_ip);
     let blocked_countries = vec!["Quran".into(), "Tristan".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
