@@ -28,6 +28,10 @@ to run your app otherwise it will fail at runtime.
 
 See [Router::into_make_service_with_connect_info](https://docs.rs/axum/latest/axum/struct.Router.html#method.into_make_service_with_connect_info) for more details.
 
+## `geopip`
+
+IP Geolocation API
+
 ## `http`
 
 Metrics and other utils for HTTP servers.

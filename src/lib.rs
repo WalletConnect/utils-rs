@@ -9,6 +9,8 @@ pub use collections;
 pub use future;
 #[cfg(feature = "geoblock")]
 pub use geoblock;
+#[cfg(feature = "geoip")]
+pub use geoip;
 #[cfg(feature = "http")]
 pub use http;
 #[cfg(feature = "metrics")]

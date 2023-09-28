@@ -17,7 +17,7 @@ pin-project = "1"
 futures-core = "0.3"
 http-body = "0.4"
 axum-client-ip = "0.4"
-geoip = { git = "https://github.com/WalletConnect/geoip.git", tag = "0.2.0"}
+geoip = { path = "../geoip" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
