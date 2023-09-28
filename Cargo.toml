@@ -17,6 +17,7 @@ full = [
   "alloc",
   "analytics",
   "profiler",
+  "projectid",
   "collections",
   "future",
   "geoblock",
@@ -31,6 +32,7 @@ geoblock = ["dep:geoblock"]
 http = []
 metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
 profiler = ["alloc/profiler"]
+projectid = ["dep:projectid"]
 
 [dependencies]
 alloc = { path = "./crates/alloc", optional = true }
@@ -40,6 +42,7 @@ future = { path = "./crates/future", optional = true }
 geoblock = { path = "./crates/geoblock", optional = true }
 http = { path = "./crates/http", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
+projectid = { path = "./crates/projectid", optional = true }
 
 [dev-dependencies]
 anyhow = "1"

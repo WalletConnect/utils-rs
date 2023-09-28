@@ -36,6 +36,10 @@ Metrics and other utils for HTTP servers.
 
 Global service metrics. Currently based on `opentelemetry` SDK and exported in `prometheus` format.
 
+## `projectid`
+
+Check project IDs against the WalletConnect registry.
+
 ## Examples
 
 - [Metrics integration](examples/metrics.rs). Prints service metrics in the default (`prometheus`) format.
