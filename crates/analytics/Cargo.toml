@@ -1,0 +1,20 @@
+[package]
+name = "analytics"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1"
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
+tracing = "0.1"
+
+# Misc
+thiserror = "1.0"
+anyhow = "1"
+tap = "1.0"
+
+chrono = { version = "0.4" }
+aws-sdk-s3 = "0.25"
+bytes = "1.2"
+parquet = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "99a1cc3", default-features = false, features = ["flate2"]  }
+parquet_derive = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "99a1cc3" }

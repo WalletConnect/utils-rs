@@ -15,28 +15,31 @@ members = [
 default = []
 full = [
   "alloc",
+  "analytics",
   "profiler",
   "collections",
   "future",
+  "geoblock",
   "http",
   "metrics",
-  "geoblock"
 ]
 alloc = ["dep:alloc"]
+analytics = ["dep:analytics"]
 collections = ["dep:collections"]
 future = ["dep:future"]
+geoblock = ["dep:geoblock"]
 http = []
 metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
 profiler = ["alloc/profiler"]
-geoblock = ["dep:geoblock"]
 
 [dependencies]
 alloc = { path = "./crates/alloc", optional = true }
+analytics = { path = "./crates/analytics", optional = true }
 collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
+geoblock = { path = "./crates/geoblock", optional = true }
 http = { path = "./crates/http", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
-geoblock = { path = "./crates/geoblock", optional = true }
 
 [dev-dependencies]
 anyhow = "1"

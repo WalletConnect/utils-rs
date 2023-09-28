@@ -6,6 +6,10 @@ Rust Utilities for WalletConnect
 
 Exports `Jemalloc` (from the [`tikv-jemallocator`](https://github.com/tikv/jemallocator)) with service metrics instrumentation. Also contains a custom lightweight version of the [DHAT profiler](https://github.com/WalletConnect/dhat-rs) to automate heap profiling in async environment.
 
+## `analytics`
+
+Analytics parquet writer. 
+
 ## `collections`
 
 Extensions for collections such as `HashMap`.
@@ -13,14 +17,6 @@ Extensions for collections such as `HashMap`.
 ## `future`
 
 Convenience `Future` extensions.
-
-## `http`
-
-Metrics and other utils for HTTP servers.
-
-## `metrics`
-
-Global service metrics. Currently based on `opentelemetry` SDK and exported in `prometheus` format.
 
 ## `geoblock`
 
@@ -31,6 +27,14 @@ Note: this middleware requires you to use
 to run your app otherwise it will fail at runtime.
 
 See [Router::into_make_service_with_connect_info](https://docs.rs/axum/latest/axum/struct.Router.html#method.into_make_service_with_connect_info) for more details.
+
+## `http`
+
+Metrics and other utils for HTTP servers.
+
+## `metrics`
+
+Global service metrics. Currently based on `opentelemetry` SDK and exported in `prometheus` format.
 
 ## Examples
 

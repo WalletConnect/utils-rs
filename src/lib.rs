@@ -1,6 +1,7 @@
 #[cfg(feature = "alloc")]
 pub use alloc;
-
+#[cfg(feature = "analytics")]
+pub use analytics;
 #[cfg(feature = "collections")]
 pub use collections;
 #[cfg(feature = "future")]
