@@ -20,6 +20,7 @@ full = [
   "future",
   "http",
   "metrics",
+  "geoip",
   "geoblock"
 ]
 alloc = ["dep:alloc"]
@@ -28,7 +29,8 @@ future = ["dep:future"]
 http = []
 metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
 profiler = ["alloc/profiler"]
-geoblock = ["dep:geoblock"]
+geoip = ["dep:geoip"]
+geoblock = ["geoip/middleware"]
 
 [dependencies]
 alloc = { path = "./crates/alloc", optional = true }
@@ -36,7 +38,7 @@ collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
 http = { path = "./crates/http", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
-geoblock = { path = "./crates/geoblock", optional = true }
+geoip = { path = "./crates/geoip", optional = true }
 
 [dev-dependencies]
 anyhow = "1"
@@ -60,4 +62,4 @@ required-features = ["metrics", "future"]
 
 [[example]]
 name = "geoblock"
-required-features = ["geoblock"]
+required-features = ["geoip"]
