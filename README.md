@@ -40,7 +40,7 @@ Metrics and other utils for HTTP servers.
 
 Global service metrics. Currently based on `opentelemetry` SDK and exported in `prometheus` format.
 
-## `projectid`
+## `project_registry`
 
 Check project IDs against the WalletConnect registry.
 

@@ -15,5 +15,5 @@ pub use geoip;
 pub use http;
 #[cfg(feature = "metrics")]
 pub use metrics;
-#[cfg(feature = "projectid")]
-pub use projectid;
+#[cfg(feature = "project_registry")]
+pub use project_registry;
