@@ -3,10 +3,25 @@ name = "geoip"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+full = ["middleware"]
+middleware = ["dep:tower", "dep:tower-layer", "dep:axum-client-ip", "dep:http-body"]
 
 [dependencies]
-bytes = "1.5"
-aws-sdk-s3 = "0.31.0"
-maxminddb = "0.23"
+tower = { version = "0.4", optional = true }
+tower-layer = { version = "0.3", optional = true }
+http-body = { version = "0.4", optional = true }
+axum-client-ip = { version = "0.4", optional = true }
+bitflags = "2.4"
+hyper = "0.14"
+tracing = "0.1"
 thiserror = "1.0"
+futures = "0.3"
+bytes = "1.5"
+aws-sdk-s3 = "0.31"
+maxminddb = "0.23"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.6"

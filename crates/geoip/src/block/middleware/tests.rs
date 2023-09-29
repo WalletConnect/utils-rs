@@ -1,10 +1,11 @@
 use {
-    crate::{geoip, BlockingPolicy, GeoBlockLayer},
-    hyper::{Body, Request, Response, StatusCode},
-    std::{
-        convert::Infallible,
-        net::{IpAddr, Ipv4Addr},
+    crate::{
+        block::{middleware::GeoBlockLayer, BlockingPolicy},
+        LocalResolver,
     },
+    hyper::{Body, Request, Response, StatusCode},
+    maxminddb::{geoip2, geoip2::City},
+    std::{convert::Infallible, net::IpAddr},
     tower::{Service, ServiceBuilder, ServiceExt},
 };
 
@@ -12,27 +13,28 @@ async fn handle(_request: Request<Body>) -> Result<Response<Body>, Infallible> {
     Ok(Response::new(Body::empty()))
 }
 
-fn resolve_ip(caller: IpAddr) -> geoip::GeoData {
-    if IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)) == caller {
-        geoip::GeoData {
-            continent: Some("NA".to_string().into()),
-            country: Some("CU".to_string().into()),
-            region: None,
-            city: None,
-        }
-    } else {
-        geoip::GeoData {
-            continent: Some("NA".to_string().into()),
-            country: Some("US".to_string().into()),
-            region: None,
-            city: None,
-        }
+fn resolve_ip(_addr: IpAddr) -> City<'static> {
+    City {
+        city: None,
+        continent: None,
+        country: Some(geoip2::city::Country {
+            geoname_id: None,
+            is_in_european_union: None,
+            iso_code: Some("CU"),
+            names: None,
+        }),
+        location: None,
+        postal: None,
+        registered_country: None,
+        represented_country: None,
+        subdivisions: None,
+        traits: None,
     }
 }
 
 #[tokio::test]
 async fn test_blocked_country() {
-    let resolver: geoip::local::LocalResolver = geoip::local::LocalResolver::new(resolve_ip);
+    let resolver = LocalResolver::new(Some(resolve_ip), None);
     let blocked_countries = vec!["CU".into(), "IR".into(), "KP".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
@@ -51,7 +53,7 @@ async fn test_blocked_country() {
 
 #[tokio::test]
 async fn test_non_blocked_country() {
-    let resolver: geoip::local::LocalResolver = geoip::local::LocalResolver::new(resolve_ip);
+    let resolver = LocalResolver::new(Some(resolve_ip), None);
     let blocked_countries = vec!["IR".into(), "KP".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
