@@ -5,7 +5,7 @@ use {
     },
     hyper::{Body, Request, Response, StatusCode},
     maxminddb::{geoip2, geoip2::City},
-    std::{convert::Infallible, net::IpAddr},
+    std::{convert::Infallible, net::IpAddr, sync::Arc},
     tower::{Service, ServiceBuilder, ServiceExt},
 };
 
@@ -38,6 +38,44 @@ async fn test_blocked_country() {
     let blocked_countries = vec!["CU".into(), "IR".into(), "KP".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
+
+    let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
+
+    let request = Request::builder()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_reference() {
+    let resolver = LocalResolver::new(Some(resolve_ip), None);
+    let blocked_countries = vec!["CU".into(), "IR".into(), "KP".into()];
+
+    let geoblock = GeoBlockLayer::new(&resolver, blocked_countries, BlockingPolicy::Block);
+
+    let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
+
+    let request = Request::builder()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_arc() {
+    let resolver = Arc::from(LocalResolver::new(Some(resolve_ip), None));
+    let blocked_countries = vec!["CU".into(), "IR".into(), "KP".into()];
+
+    let geoblock = GeoBlockLayer::new(&resolver, blocked_countries, BlockingPolicy::Block);
 
     let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
 
