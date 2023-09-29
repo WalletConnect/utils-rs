@@ -5,7 +5,7 @@ use {
     wc::geoip::{
         block::{middleware::GeoBlockLayer, BlockingPolicy},
         maxminddb::geoip2,
-        resolver::{self, LocalResolver},
+        LocalResolver,
     },
 };
 
@@ -13,8 +13,8 @@ async fn handle(_request: Request<Body>) -> Result<Response<Body>, Infallible> {
     Ok(Response::new(Body::empty()))
 }
 
-fn resolve_ip(_addr: IpAddr) -> resolver::City<'static> {
-    resolver::City {
+fn resolve_ip(_addr: IpAddr) -> geoip2::City<'static> {
+    geoip2::City {
         city: None,
         continent: None,
         country: Some(geoip2::city::Country {

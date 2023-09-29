@@ -1,10 +1,10 @@
 use {
     crate::{
         block::{middleware::GeoBlockLayer, BlockingPolicy},
-        resolver,
+        LocalResolver,
     },
     hyper::{Body, Request, Response, StatusCode},
-    maxminddb::geoip2,
+    maxminddb::{geoip2, geoip2::City},
     std::{convert::Infallible, net::IpAddr},
     tower::{Service, ServiceBuilder, ServiceExt},
 };
@@ -13,8 +13,8 @@ async fn handle(_request: Request<Body>) -> Result<Response<Body>, Infallible> {
     Ok(Response::new(Body::empty()))
 }
 
-fn resolve_ip(_addr: IpAddr) -> resolver::City<'static> {
-    resolver::City {
+fn resolve_ip(_addr: IpAddr) -> City<'static> {
+    City {
         city: None,
         continent: None,
         country: Some(geoip2::city::Country {
@@ -34,7 +34,7 @@ fn resolve_ip(_addr: IpAddr) -> resolver::City<'static> {
 
 #[tokio::test]
 async fn test_blocked_country() {
-    let resolver: resolver::LocalResolver = resolver::LocalResolver::new(Some(resolve_ip), None);
+    let resolver = LocalResolver::new(Some(resolve_ip), None);
     let blocked_countries = vec!["CU".into(), "IR".into(), "KP".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
@@ -53,7 +53,7 @@ async fn test_blocked_country() {
 
 #[tokio::test]
 async fn test_non_blocked_country() {
-    let resolver: resolver::LocalResolver = resolver::LocalResolver::new(Some(resolve_ip), None);
+    let resolver = LocalResolver::new(Some(resolve_ip), None);
     let blocked_countries = vec!["IR".into(), "KP".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);

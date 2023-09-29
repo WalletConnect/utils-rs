@@ -1,4 +1,4 @@
-use {crate::resolver::GeoIpResolver, bitflags::bitflags, std::net::IpAddr};
+use {crate::Resolver, bitflags::bitflags, std::net::IpAddr};
 
 #[cfg(feature = "middleware")]
 pub mod middleware;
@@ -47,7 +47,7 @@ impl CountryFilter {
     /// blocked or if the lookup has failed for any reason.
     pub fn check<R>(&self, addr: IpAddr, resolver: &R) -> Result<(), Error>
     where
-        R: GeoIpResolver,
+        R: Resolver,
     {
         let country = resolver
             .lookup_geo_data_raw(addr)

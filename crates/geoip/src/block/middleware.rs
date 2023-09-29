@@ -8,7 +8,7 @@
 
 use {
     super::{BlockingPolicy, CountryFilter, Error},
-    crate::resolver::GeoIpResolver,
+    crate::Resolver,
     axum_client_ip::InsecureClientIp,
     futures::future::{self, Either, Ready},
     http_body::Body,
@@ -36,14 +36,14 @@ struct Inner<R> {
 #[must_use]
 pub struct GeoBlockLayer<R>
 where
-    R: GeoIpResolver,
+    R: Resolver,
 {
     inner: Arc<Inner<R>>,
 }
 
 impl<R> GeoBlockLayer<R>
 where
-    R: GeoIpResolver,
+    R: Resolver,
 {
     pub fn new(
         ip_resolver: R,
@@ -61,7 +61,7 @@ where
 
 impl<S, R> Layer<S> for GeoBlockLayer<R>
 where
-    R: GeoIpResolver,
+    R: Resolver,
 {
     type Service = GeoBlockService<S, R>;
 
@@ -79,7 +79,7 @@ where
 #[must_use]
 pub struct GeoBlockService<S, R>
 where
-    R: GeoIpResolver,
+    R: Resolver,
 {
     service: S,
     inner: Arc<Inner<R>>,
@@ -87,7 +87,7 @@ where
 
 impl<S, R> GeoBlockService<S, R>
 where
-    R: GeoIpResolver,
+    R: Resolver,
 {
     pub fn new(
         service: S,
@@ -108,7 +108,7 @@ where
 impl<S, R, ReqBody, ResBody> Service<Request<ReqBody>> for GeoBlockService<S, R>
 where
     S: Service<Request<ReqBody>, Response = Response<ResBody>>,
-    R: GeoIpResolver,
+    R: Resolver,
     ResBody: Body + Default,
 {
     type Error = S::Error;
@@ -141,12 +141,10 @@ where
                     }
                 };
 
-                Either::Right(future::ok(
-                    Response::builder()
-                        .status(code)
-                        .body(ResBody::default())
-                        .unwrap(),
-                ))
+                let mut response = Response::new(ResBody::default());
+                *response.status_mut() = code;
+
+                Either::Right(future::ok(response))
             }
         }
     }
