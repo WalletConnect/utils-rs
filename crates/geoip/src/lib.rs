@@ -8,7 +8,7 @@ use {
     },
     bytes::Bytes,
     maxminddb::geoip2::City,
-    std::{net::IpAddr, sync::Arc},
+    std::{net::IpAddr, ops::Deref, sync::Arc},
 };
 
 pub mod block;
@@ -30,6 +30,40 @@ pub trait Resolver: Clone {
 
     /// Lookup the geo data for the given IP address.
     fn lookup_geo_data(&self, addr: IpAddr) -> Result<Data, Self::Error>;
+}
+
+impl<'a, T> Resolver for &'a T
+where
+    T: Resolver,
+{
+    type Error = T::Error;
+
+    fn lookup_geo_data_raw(&self, addr: IpAddr) -> Result<City<'_>, Self::Error> {
+        let r = <&T>::deref(self);
+        r.lookup_geo_data_raw(addr)
+    }
+
+    fn lookup_geo_data(&self, addr: IpAddr) -> Result<Data, Self::Error> {
+        let r = <&T>::deref(self);
+        r.lookup_geo_data(addr)
+    }
+}
+
+impl<T> Resolver for Arc<T>
+where
+    T: Resolver,
+{
+    type Error = T::Error;
+
+    fn lookup_geo_data_raw(&self, addr: IpAddr) -> Result<City<'_>, Self::Error> {
+        let r = self.deref();
+        r.lookup_geo_data_raw(addr)
+    }
+
+    fn lookup_geo_data(&self, addr: IpAddr) -> Result<Data, Self::Error> {
+        let r = self.deref();
+        r.lookup_geo_data(addr)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
