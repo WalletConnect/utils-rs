@@ -28,7 +28,7 @@ alloc = ["dep:alloc"]
 analytics = ["dep:analytics"]
 collections = ["dep:collections"]
 future = ["dep:future"]
-geoblock = ["dep:geoblock", "dep:geoip"]
+geoblock = ["geoip/middleware"]
 geoip = ["dep:geoip"]
 http = []
 metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
@@ -39,7 +39,6 @@ alloc = { path = "./crates/alloc", optional = true }
 analytics = { path = "./crates/analytics", optional = true }
 collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
-geoblock = { path = "./crates/geoblock", optional = true }
 geoip = { path = "./crates/geoip", optional = true }
 http = { path = "./crates/http", optional = true }
 metrics = { path = "./crates/metrics", optional = true }

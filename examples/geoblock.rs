@@ -1,39 +1,40 @@
 use {
-    geoblock::{geoip::GeoData, BlockingPolicy, GeoBlockLayer},
     hyper::{Body, Request, Response, StatusCode},
-    std::{
-        convert::Infallible,
-        net::{IpAddr, Ipv4Addr},
-    },
+    std::{convert::Infallible, net::IpAddr},
     tower::{Service, ServiceBuilder, ServiceExt},
-    wc::geoblock::geoip::local::LocalResolver,
+    wc::geoip::{
+        block::{middleware::GeoBlockLayer, BlockingPolicy},
+        maxminddb::geoip2,
+        resolver::{self, LocalResolver},
+    },
 };
 
 async fn handle(_request: Request<Body>) -> Result<Response<Body>, Infallible> {
     Ok(Response::new(Body::empty()))
 }
 
-fn resolve_ip(caller: IpAddr) -> GeoData {
-    if IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)) == caller {
-        GeoData {
-            continent: Some("NA".to_string().into()),
-            country: Some("CU".to_string().into()),
-            region: None,
-            city: None,
-        }
-    } else {
-        GeoData {
-            continent: Some("NA".to_string().into()),
-            country: Some("US".to_string().into()),
-            region: None,
-            city: None,
-        }
+fn resolve_ip(_addr: IpAddr) -> resolver::City<'static> {
+    resolver::City {
+        city: None,
+        continent: None,
+        country: Some(geoip2::city::Country {
+            geoname_id: None,
+            is_in_european_union: None,
+            iso_code: Some("CU"),
+            names: None,
+        }),
+        location: None,
+        postal: None,
+        registered_country: None,
+        represented_country: None,
+        subdivisions: None,
+        traits: None,
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let resolver: LocalResolver = LocalResolver::new(|caller| resolve_ip(caller));
+    let resolver: LocalResolver = LocalResolver::new(Some(|caller| resolve_ip(caller)), None);
     let blocked_countries = vec!["CU".into(), "IR".into(), "KP".into()];
 
     let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);

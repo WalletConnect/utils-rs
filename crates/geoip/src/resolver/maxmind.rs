@@ -1,5 +1,5 @@
 use {
-    crate::{GeoData, GeoIpResolver},
+    super::{GeoData, GeoIpResolver},
     aws_sdk_s3::{
         error::SdkError,
         operation::get_object::GetObjectError,
@@ -9,10 +9,9 @@ use {
     bytes::Bytes,
     maxminddb::geoip2::City,
     std::{net::IpAddr, sync::Arc},
-    thiserror::Error,
 };
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum MaxMindResolverError {
     #[error("S3 get object failed: {0}")]
     GetObject(#[from] SdkError<GetObjectError>),
@@ -57,8 +56,12 @@ impl MaxMindResolver {
 impl GeoIpResolver for MaxMindResolver {
     type Error = MaxMindResolverError;
 
+    fn lookup_geo_data_raw(&self, addr: IpAddr) -> Result<City<'_>, Self::Error> {
+        self.reader.lookup::<City>(addr).map_err(Into::into)
+    }
+
     fn lookup_geo_data(&self, addr: IpAddr) -> Result<GeoData, Self::Error> {
-        let lookup_data = self.reader.lookup::<City>(addr)?;
+        let lookup_data = self.lookup_geo_data_raw(addr)?;
 
         Ok(GeoData {
             continent: lookup_data
