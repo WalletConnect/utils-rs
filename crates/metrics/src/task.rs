@@ -85,7 +85,7 @@ impl OtelTaskMetricsRecorder {
     ) -> OtelTaskMetricsRecorder {
         Self {
             inner: self.inner.clone(),
-            name: self.name.clone(),
+            name: self.name,
             attributes: attributes.into_iter().collect(),
         }
     }
