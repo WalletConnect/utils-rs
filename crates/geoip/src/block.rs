@@ -8,7 +8,7 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct BlockingPolicy: u8 {
         const Block                 = 0b00;
-        const AllowMissingCountry   = 0b01;
+        const AllowMissingGeoData   = 0b01;
         const AllowExtractFailure   = 0b10;
         const AllowAll              = 0b11;
     }
@@ -30,15 +30,34 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone)]
-pub struct CountryFilter {
-    blocked_countries: Vec<String>,
+struct Zone {
+    country: String,
+    subdivisions: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ZoneFilter {
+    blocked_zones: Vec<Zone>,
     blocking_policy: BlockingPolicy,
 }
 
-impl CountryFilter {
-    pub fn new(blocked_countries: Vec<String>, blocking_policy: BlockingPolicy) -> Self {
+impl ZoneFilter {
+    pub fn new(blocked_zones: Vec<String>, blocking_policy: BlockingPolicy) -> Self {
+        let blocked_zones = blocked_zones
+            .iter()
+            .filter_map(|zone| {
+                zone.split(':')
+                    .collect::<Vec<_>>()
+                    .split_first()
+                    .map(|(country, subdivisions)| Zone {
+                        country: country.to_string(),
+                        subdivisions: subdivisions.iter().map(|&s| s.to_string()).collect(),
+                    })
+            })
+            .collect::<Vec<_>>();
+
         Self {
-            blocked_countries,
+            blocked_zones,
             blocking_policy,
         }
     }
@@ -49,19 +68,41 @@ impl CountryFilter {
     where
         R: Resolver,
     {
-        let country = resolver
+        let geo_data = resolver
             .lookup_geo_data_raw(addr)
-            .map_err(|_| Error::UnableToExtractGeoData)?
+            .map_err(|_| Error::UnableToExtractGeoData)?;
+
+        let country = geo_data
             .country
             .and_then(|country| country.iso_code)
             .ok_or(Error::CountryNotFound)?;
 
-        let blocked = self
-            .blocked_countries
-            .iter()
-            .any(|blocked_country| blocked_country == country);
+        let zone_blocked = self.blocked_zones.iter().any(|blocked_zone| {
+            if blocked_zone.country == country {
+                if blocked_zone.subdivisions.is_empty() {
+                    true
+                } else {
+                    geo_data
+                        .subdivisions
+                        .as_deref()
+                        .map_or(false, |subdivisions| {
+                            subdivisions
+                                .iter()
+                                .filter_map(|sub| sub.iso_code)
+                                .any(|sub| {
+                                    blocked_zone
+                                        .subdivisions
+                                        .iter()
+                                        .any(|blocked_sub| sub.eq_ignore_ascii_case(blocked_sub))
+                                })
+                        })
+                }
+            } else {
+                false
+            }
+        });
 
-        if blocked {
+        if zone_blocked {
             Err(Error::Blocked)
         } else {
             Ok(())
@@ -75,7 +116,7 @@ impl CountryFilter {
             let policy = self.blocking_policy;
 
             let is_blocked = matches!(err, Error::UnableToExtractIPAddress | Error::UnableToExtractGeoData if !policy.contains(BlockingPolicy::AllowExtractFailure))
-                || matches!(err, Error::CountryNotFound if !policy.contains(BlockingPolicy::AllowMissingCountry))
+                || matches!(err, Error::CountryNotFound if !policy.contains(BlockingPolicy::AllowMissingGeoData))
                 || matches!(err, Error::Blocked);
 
             if is_blocked {
