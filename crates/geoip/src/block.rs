@@ -30,15 +30,34 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone)]
+struct Zone {
+    country: String,
+    subdivisions: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ZoneFilter {
-    blocked_zones: Vec<String>,
+    blocked_zones: Vec<Zone>,
     blocking_policy: BlockingPolicy,
 }
 
 impl ZoneFilter {
-    pub fn new(blocked_countries: Vec<String>, blocking_policy: BlockingPolicy) -> Self {
+    pub fn new(blocked_zones: Vec<String>, blocking_policy: BlockingPolicy) -> Self {
+        let blocked_zones = blocked_zones
+            .iter()
+            .filter_map(|zone| {
+                zone.split(':')
+                    .collect::<Vec<_>>()
+                    .split_first()
+                    .map(|(country, subdivisions)| Zone {
+                        country: country.to_string(),
+                        subdivisions: subdivisions.iter().map(|&s| s.to_string()).collect(),
+                    })
+            })
+            .collect::<Vec<_>>();
+
         Self {
-            blocked_zones: blocked_countries,
+            blocked_zones,
             blocking_policy,
         }
     }
@@ -58,36 +77,29 @@ impl ZoneFilter {
             .and_then(|country| country.iso_code)
             .ok_or(Error::CountryNotFound)?;
 
-        let subdivisions: Vec<&str> = geo_data
-            .subdivisions
-            .map(|subdivisions| {
-                subdivisions
-                    .into_iter()
-                    .filter_map(|sub| sub.iso_code)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
         let zone_blocked = self.blocked_zones.iter().any(|blocked_zone| {
-            blocked_zone
-                .split(':')
-                .collect::<Vec<_>>()
-                .split_first()
-                .map_or(false, |(blocked_country, blocked_subdivisions)| {
-                    if blocked_country == &country {
-                        if blocked_subdivisions.is_empty() {
-                            true
-                        } else {
-                            subdivisions.iter().any(|sub| {
-                                blocked_subdivisions
-                                    .iter()
-                                    .any(|blocked_sub| sub.eq_ignore_ascii_case(blocked_sub))
-                            })
-                        }
-                    } else {
-                        false
-                    }
-                })
+            if blocked_zone.country == country {
+                if blocked_zone.subdivisions.is_empty() {
+                    true
+                } else {
+                    geo_data
+                        .subdivisions
+                        .as_deref()
+                        .map_or(false, |subdivisions| {
+                            subdivisions
+                                .iter()
+                                .filter_map(|sub| sub.iso_code)
+                                .any(|sub| {
+                                    blocked_zone
+                                        .subdivisions
+                                        .iter()
+                                        .any(|blocked_sub| sub.eq_ignore_ascii_case(blocked_sub))
+                                })
+                        })
+                }
+            } else {
+                false
+            }
         });
 
         if zone_blocked {
