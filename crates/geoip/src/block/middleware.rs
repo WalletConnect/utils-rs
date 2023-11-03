@@ -7,7 +7,7 @@
 //! See [Router::into_make_service_with_connect_info](https://docs.rs/axum/latest/axum/struct.Router.html#method.into_make_service_with_connect_info) for more details.
 
 use {
-    super::{BlockingPolicy, CountryFilter, Error},
+    super::{BlockingPolicy, Error, ZoneFilter},
     crate::Resolver,
     axum_client_ip::InsecureClientIp,
     futures::future::{self, Either, Ready},
@@ -26,7 +26,7 @@ mod tests;
 
 #[derive(Debug)]
 struct Inner<R> {
-    filter: CountryFilter,
+    filter: ZoneFilter,
     ip_resolver: R,
 }
 
@@ -52,7 +52,7 @@ where
     ) -> Self {
         Self {
             inner: Arc::new(Inner {
-                filter: CountryFilter::new(blocked_countries, blocking_policy),
+                filter: ZoneFilter::new(blocked_countries, blocking_policy),
                 ip_resolver,
             }),
         }
@@ -92,13 +92,13 @@ where
     pub fn new(
         service: S,
         ip_resolver: R,
-        blocked_countries: Vec<String>,
+        blocked_zones: Vec<String>,
         blocking_policy: BlockingPolicy,
     ) -> Self {
         Self {
             service,
             inner: Arc::new(Inner {
-                filter: CountryFilter::new(blocked_countries, blocking_policy),
+                filter: ZoneFilter::new(blocked_zones, blocking_policy),
                 ip_resolver,
             }),
         }
