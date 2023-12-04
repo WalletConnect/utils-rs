@@ -71,7 +71,7 @@ impl BatchExporter for AwsExporter {
             .body(ByteStream::from(data))
             .send()
             .await
-            .map_err(|err| AwsError::UploadError(err.to_string()))?;
+            .map_err(|err| AwsError::UploadError(format!("{err:?}")))?;
 
         info!("analytics successfully uploaded");
 
