@@ -270,8 +270,7 @@ pub trait StaticFutureExt {
 
 impl<T> FutureExt for T
 where
-    T: Future + Send,
-    T::Output: Send,
+    T: Future,
 {
     type Future = T;
 
