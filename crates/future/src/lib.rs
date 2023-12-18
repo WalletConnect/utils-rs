@@ -123,7 +123,7 @@ where
 /// Quality of life methods for cleaner futures spawning, timeout and
 /// cancellation using [`CancellationToken`].
 pub trait FutureExt {
-    type Future: Future + Send;
+    type Future: Future;
 
     /// Effectively wraps the future in [`tokio::time::timeout()`], returning a
     /// future that also allows you to run different future, in case the timeout
