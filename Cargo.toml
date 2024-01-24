@@ -34,6 +34,9 @@ http = []
 metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
 profiler = ["alloc/profiler"]
 
+[workspace.dependencies]
+aws-sdk-s3 = "1.13"
+
 [dependencies]
 alloc = { path = "./crates/alloc", optional = true }
 analytics = { path = "./crates/analytics", optional = true }

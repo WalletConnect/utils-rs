@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+future = { path = "../future" }
+
 async-trait = "0.1"
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
 tracing = "0.1"
@@ -14,7 +16,7 @@ anyhow = "1"
 tap = "1.0"
 
 chrono = { version = "0.4" }
-aws-sdk-s3 = "0.31"
+aws-sdk-s3.workspace = true
 bytes = "1.5"
 parquet = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "99a1cc3", default-features = false, features = ["flate2"]  }
 parquet_derive = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "99a1cc3" }
