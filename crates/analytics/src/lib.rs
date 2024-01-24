@@ -75,7 +75,7 @@ pub struct Observable<I, O> {
 impl<T, I, O> BatchFactory<T> for Observable<I, O>
 where
     I: BatchFactory<T>,
-    O: BatchObserver<T, I::Error> + BatchObserver<T, <I::Batch as Batch<T>>::Error> + Clone,
+    O: BatchObserver<T, <I::Batch as Batch<T>>::Error> + Clone,
 {
     type Batch = Observable<I::Batch, O>;
     type Error = I::Error;
