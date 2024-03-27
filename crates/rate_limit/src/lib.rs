@@ -1,16 +1,10 @@
 use {
-    chrono::{DateTime, Duration, Utc},
-    core::fmt,
+    chrono::Duration,
     deadpool_redis::{Pool, PoolError},
     moka::future::Cache,
     redis::{RedisError, Script},
     std::{collections::HashMap, sync::Arc},
 };
-
-pub type Clock = Option<Arc<dyn ClockImpl>>;
-pub trait ClockImpl: fmt::Debug + Send + Sync {
-    fn now(&self) -> DateTime<Utc>;
-}
 
 #[derive(Debug, thiserror::Error)]
 #[error("Rate limit exceeded. Try again at {reset}")]
@@ -46,6 +40,7 @@ pub async fn token_bucket(
     max_tokens: u32,
     interval: Duration,
     refill_rate: u32,
+    now_millis: i64,
 ) -> Result<(), RateLimitError> {
     // Check if the key is in the memory cache of rate limited keys
     // to omit the redis RTT in case of flood
@@ -61,6 +56,7 @@ pub async fn token_bucket(
         max_tokens,
         interval,
         refill_rate,
+        now_millis,
     )
     .await
     .map_err(RateLimitError::Internal)?;
@@ -88,9 +84,8 @@ pub async fn token_bucket_many(
     max_tokens: u32,
     interval: Duration,
     refill_rate: u32,
+    now_millis: i64,
 ) -> Result<HashMap<String, (i64, u64)>, InternalRateLimitError> {
-    let now = Utc::now();
-
     // Remaining is number of tokens remaining. -1 for rate limited.
     // Reset is the time at which there will be 1 more token than before. This
     // could, for example, be used to cache a 0 token count.
@@ -99,7 +94,7 @@ pub async fn token_bucket_many(
         .arg(max_tokens)
         .arg(interval.num_milliseconds())
         .arg(refill_rate)
-        .arg(now.timestamp_millis())
+        .arg(now_millis)
         .invoke_async::<_, String>(
             &mut redis_write_pool
                 .clone()
@@ -116,12 +111,16 @@ pub async fn token_bucket_many(
 mod tests {
     const REDIS_URI: &str = "redis://localhost:6379";
     const REFILL_INTERVAL_MILLIS: i64 = 100;
+    const MAX_TOKENS: u32 = 5;
+    const REFILL_RATE: u32 = 1;
 
     use {
         super::*,
+        chrono::Utc,
         deadpool_redis::{Config, Runtime},
         redis::AsyncCommands,
         tokio::time::sleep,
+        uuid::Uuid,
     };
 
     async fn redis_clear_keys(conn_uri: &str, keys: &[String]) {
@@ -132,51 +131,90 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_token_bucket_many() {
+    async fn test_rate_limiting(key: String) {
         let cfg = Config::from_url(REDIS_URI);
         let pool = Arc::new(cfg.create_pool(Some(Runtime::Tokio1)).unwrap());
-        let key = "token_bucket_many_test_key".to_string();
-
-        // Before running the test, ensure the test keys are cleared
-        redis_clear_keys(REDIS_URI, &[key.clone()]).await;
-
-        let max_tokens = 10;
         let refill_interval = chrono::Duration::try_milliseconds(REFILL_INTERVAL_MILLIS).unwrap();
-        let refill_rate = 1;
-        let rate_limit = || async {
-            token_bucket_many(
-                &pool,
-                vec![key.clone()],
-                max_tokens,
-                refill_interval,
-                refill_rate,
-            )
-            .await
-            .unwrap()
-            .get(&key.clone())
-            .unwrap()
-            .to_owned()
-        };
-        let call_rate_limit_loop = || async {
-            for i in 0..=max_tokens {
-                let curr_iter = max_tokens as i64 - i as i64 - 1;
-                let result = rate_limit().await;
-                assert_eq!(result.0, curr_iter);
+        let rate_limit = |now_millis: i64| {
+            let key = key.clone();
+            let pool = pool.clone();
+            async move {
+                token_bucket_many(
+                    &pool,
+                    vec![key.clone()],
+                    MAX_TOKENS,
+                    refill_interval,
+                    REFILL_RATE,
+                    now_millis,
+                )
+                .await
+                .unwrap()
+                .get(&key)
+                .unwrap()
+                .to_owned()
             }
+        };
+        // Function to call rate limit multiple times and assert results
+        // for tokens count and reset timestamp
+        let call_rate_limit_loop = |loop_iterations| async move {
+            let first_call_millis = Utc::now().timestamp_millis();
+            for i in 0..=loop_iterations {
+                let curr_iter = loop_iterations as i64 - i as i64 - 1;
+
+                // Using the first call timestamp for the first call or produce the current
+                let result = if i == 0 {
+                    rate_limit(first_call_millis).await
+                } else {
+                    rate_limit(Utc::now().timestamp_millis()).await
+                };
+
+                // Assert the remaining tokens count
+                assert_eq!(result.0, curr_iter);
+                // Assert the reset timestamp should be the first call timestamp + refill
+                // interval
+                assert_eq!(
+                    result.1,
+                    (first_call_millis + REFILL_INTERVAL_MILLIS) as u64
+                );
+            }
+            // Returning the refill timestamp
+            first_call_millis + REFILL_INTERVAL_MILLIS
         };
 
         // Call rate limit until max tokens limit is reached
-        call_rate_limit_loop().await;
+        call_rate_limit_loop(MAX_TOKENS).await;
 
-        // Sleep for refill and try again
+        // Sleep for the full refill and try again
         // Tokens numbers should be the same as the previous iteration because
-        // they were refilled
-        sleep((refill_interval * max_tokens as i32).to_std().unwrap()).await;
-        call_rate_limit_loop().await;
+        // they were fully refilled
+        sleep((refill_interval * MAX_TOKENS as i32).to_std().unwrap()).await;
+        let last_timestamp = call_rate_limit_loop(MAX_TOKENS).await;
+
+        // Sleep for just one refill and try again
+        // The result must contain one token and the reset timestamp should be
+        // the last full iteration call timestamp + refill interval
+        sleep((refill_interval).to_std().unwrap()).await;
+        let result = rate_limit(Utc::now().timestamp_millis()).await;
+        assert_eq!(result.0, 0);
+        assert_eq!(result.1, (last_timestamp + REFILL_INTERVAL_MILLIS) as u64);
+    }
+
+    #[tokio::test]
+    async fn test_token_bucket_many() {
+        const KEYS_NUMBER_TO_TEST: usize = 3;
+        let keys = (0..KEYS_NUMBER_TO_TEST)
+            .map(|_| Uuid::new_v4().to_string())
+            .collect::<Vec<String>>();
+
+        // Before running the test, ensure the test keys are cleared
+        redis_clear_keys(REDIS_URI, &keys).await;
+
+        // Start async test for each key and wait for all to complete
+        let tasks = keys.iter().map(|key| test_rate_limiting(key.clone()));
+        futures::future::join_all(tasks).await;
 
         // Clear keys after the test
-        redis_clear_keys(REDIS_URI, &[key.clone()]).await;
+        redis_clear_keys(REDIS_URI, &keys).await;
     }
 
     #[tokio::test]
@@ -190,29 +228,33 @@ mod tests {
 
         let cfg = Config::from_url(REDIS_URI);
         let pool = Arc::new(cfg.create_pool(Some(Runtime::Tokio1)).unwrap());
-        let key = "token_bucket_test_key".to_string();
+        let key = Uuid::new_v4().to_string();
 
         // Before running the test, ensure the test keys are cleared
         redis_clear_keys(REDIS_URI, &[key.clone()]).await;
 
-        let max_tokens = 10;
         let refill_interval = chrono::Duration::try_milliseconds(REFILL_INTERVAL_MILLIS).unwrap();
-        let refill_rate = 1;
-        let rate_limit = || async {
-            token_bucket(
-                &cache,
-                &pool,
-                key.clone(),
-                max_tokens,
-                refill_interval,
-                refill_rate,
-            )
-            .await
+        let rate_limit = |now_millis| {
+            let key = key.clone();
+            let pool = pool.clone();
+            let cache = cache.clone();
+            async move {
+                token_bucket(
+                    &cache,
+                    &pool,
+                    key.clone(),
+                    MAX_TOKENS,
+                    refill_interval,
+                    REFILL_RATE,
+                    now_millis,
+                )
+                .await
+            }
         };
-        let call_rate_limit_loop = || async {
-            for i in 0..=max_tokens {
-                let result = rate_limit().await;
-                if i == max_tokens {
+        let call_rate_limit_loop = |now_millis| async move {
+            for i in 0..=MAX_TOKENS {
+                let result = rate_limit(now_millis).await;
+                if i == MAX_TOKENS {
                     assert!(result
                         .err()
                         .unwrap()
@@ -225,11 +267,11 @@ mod tests {
         };
 
         // Call rate limit until max tokens limit is reached
-        call_rate_limit_loop().await;
+        call_rate_limit_loop(Utc::now().timestamp_millis()).await;
 
         // Sleep for refill and try again
-        sleep((refill_interval * max_tokens as i32).to_std().unwrap()).await;
-        call_rate_limit_loop().await;
+        sleep((refill_interval * MAX_TOKENS as i32).to_std().unwrap()).await;
+        call_rate_limit_loop(Utc::now().timestamp_millis()).await;
 
         // Clear keys after the test
         redis_clear_keys(REDIS_URI, &[key.clone()]).await;
