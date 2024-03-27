@@ -1,5 +1,5 @@
 use {
-    chrono::Duration,
+    chrono::{DateTime, Duration, Utc},
     deadpool_redis::{Pool, PoolError},
     moka::future::Cache,
     redis::{RedisError, Script},
@@ -40,7 +40,7 @@ pub async fn token_bucket(
     max_tokens: u32,
     interval: Duration,
     refill_rate: u32,
-    now_millis: i64,
+    now_millis: DateTime<Utc>,
 ) -> Result<(), RateLimitError> {
     // Check if the key is in the memory cache of rate limited keys
     // to omit the redis RTT in case of flood
@@ -84,7 +84,7 @@ pub async fn token_bucket_many(
     max_tokens: u32,
     interval: Duration,
     refill_rate: u32,
-    now_millis: i64,
+    now_millis: DateTime<Utc>,
 ) -> Result<HashMap<String, (i64, u64)>, InternalRateLimitError> {
     // Remaining is number of tokens remaining. -1 for rate limited.
     // Reset is the time at which there will be 1 more token than before. This
@@ -94,7 +94,7 @@ pub async fn token_bucket_many(
         .arg(max_tokens)
         .arg(interval.num_milliseconds())
         .arg(refill_rate)
-        .arg(now_millis)
+        .arg(now_millis.timestamp_millis())
         .invoke_async::<_, String>(
             &mut redis_write_pool
                 .clone()
@@ -135,7 +135,7 @@ mod tests {
         let cfg = Config::from_url(REDIS_URI);
         let pool = Arc::new(cfg.create_pool(Some(Runtime::Tokio1)).unwrap());
         let refill_interval = chrono::Duration::try_milliseconds(REFILL_INTERVAL_MILLIS).unwrap();
-        let rate_limit = |now_millis: i64| {
+        let rate_limit = |now_millis| {
             let key = key.clone();
             let pool = pool.clone();
             async move {
@@ -157,7 +157,7 @@ mod tests {
         // Function to call rate limit multiple times and assert results
         // for tokens count and reset timestamp
         let call_rate_limit_loop = |loop_iterations| async move {
-            let first_call_millis = Utc::now().timestamp_millis();
+            let first_call_millis = Utc::now();
             for i in 0..=loop_iterations {
                 let curr_iter = loop_iterations as i64 - i as i64 - 1;
 
@@ -165,7 +165,7 @@ mod tests {
                 let result = if i == 0 {
                     rate_limit(first_call_millis).await
                 } else {
-                    rate_limit(Utc::now().timestamp_millis()).await
+                    rate_limit(Utc::now()).await
                 };
 
                 // Assert the remaining tokens count
@@ -174,11 +174,11 @@ mod tests {
                 // interval
                 assert_eq!(
                     result.1,
-                    (first_call_millis + REFILL_INTERVAL_MILLIS) as u64
+                    (first_call_millis.timestamp_millis() + REFILL_INTERVAL_MILLIS) as u64
                 );
             }
             // Returning the refill timestamp
-            first_call_millis + REFILL_INTERVAL_MILLIS
+            first_call_millis.timestamp_millis() + REFILL_INTERVAL_MILLIS
         };
 
         // Call rate limit until max tokens limit is reached
@@ -194,7 +194,7 @@ mod tests {
         // The result must contain one token and the reset timestamp should be
         // the last full iteration call timestamp + refill interval
         sleep((refill_interval).to_std().unwrap()).await;
-        let result = rate_limit(Utc::now().timestamp_millis()).await;
+        let result = rate_limit(Utc::now()).await;
         assert_eq!(result.0, 0);
         assert_eq!(result.1, (last_timestamp + REFILL_INTERVAL_MILLIS) as u64);
     }
@@ -267,11 +267,11 @@ mod tests {
         };
 
         // Call rate limit until max tokens limit is reached
-        call_rate_limit_loop(Utc::now().timestamp_millis()).await;
+        call_rate_limit_loop(Utc::now()).await;
 
         // Sleep for refill and try again
         sleep((refill_interval * MAX_TOKENS as i32).to_std().unwrap()).await;
-        call_rate_limit_loop(Utc::now().timestamp_millis()).await;
+        call_rate_limit_loop(Utc::now()).await;
 
         // Clear keys after the test
         redis_clear_keys(REDIS_URI, &[key.clone()]).await;
