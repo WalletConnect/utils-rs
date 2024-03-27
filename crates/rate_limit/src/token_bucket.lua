@@ -6,39 +6,24 @@ local refillRate = tonumber(ARGV[3]) -- how many tokens are refilled after each 
 local now = tonumber(ARGV[4]) -- current timestamp in milliseconds
 
 local results = {}
-
-for i, key in ipairs(keys) do
+for i, key in ipairs(KEYS) do
     local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
+    local refilledAt = (bucket[1] == false and tonumber(now) or tonumber(bucket[1]))
+    local tokens = (bucket[1] == false and tonumber(maxTokens) or tonumber(bucket[2]))
 
-    local refilledAt
-    local tokens
+    if tonumber(now) >= refilledAt + interval then
+        tokens = math.min(tonumber(maxTokens), tokens + math.floor((tonumber(now) - refilledAt) / interval) * tonumber(refillRate))
+        refilledAt = refilledAt + math.floor((tonumber(now) - refilledAt) / interval) * interval
+    end
 
-    if bucket[1] == false then
-        refilledAt = now
-        tokens = maxTokens
+    if tokens > 0 then
+        tokens = tokens - 1
+        redis.call("HSET", key, "refilledAt", refilledAt, "tokens", tokens)
+        redis.call("PEXPIRE", key, math.ceil(((tonumber(maxTokens) - tokens) / tonumber(refillRate)) * interval))
+        results[key] = {tokens, refilledAt + interval}
     else
-        refilledAt = tonumber(bucket[1])
-        tokens = tonumber(bucket[2])
-    end
-
-    if now >= refilledAt + interval then
-        local numRefills = math.floor((now - refilledAt) / interval)
-        tokens = math.min(maxTokens, tokens + numRefills * refillRate)
-
-        refilledAt = refilledAt + numRefills * interval
-    end
-
-    if tokens == 0 then
         results[key] = {-1, refilledAt + interval}
-    else
-        local remaining = tokens - 1
-        local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
-
-        redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
-        redis.call("PEXPIRE", key, expireAt)
-        results[key] = {remaining, refilledAt + interval}
     end
 end
-
 -- Redis doesn't support Lua table responses: https://stackoverflow.com/a/24302613
 return cjson.encode(results)
