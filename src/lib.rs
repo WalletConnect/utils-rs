@@ -13,3 +13,5 @@ pub use geoip;
 pub use http;
 #[cfg(feature = "metrics")]
 pub use metrics;
+#[cfg(feature = "rate_limit")]
+pub use rate_limit;

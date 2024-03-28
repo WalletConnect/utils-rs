@@ -23,6 +23,7 @@ full = [
   "geoip",
   "http",
   "metrics",
+  "rate_limit",
 ]
 alloc = ["dep:alloc"]
 analytics = ["dep:analytics"]
@@ -33,6 +34,7 @@ geoip = ["dep:geoip"]
 http = []
 metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
 profiler = ["alloc/profiler"]
+rate_limit = ["dep:rate_limit"]
 
 [workspace.dependencies]
 aws-sdk-s3 = "1.13"
@@ -45,6 +47,7 @@ future = { path = "./crates/future", optional = true }
 geoip = { path = "./crates/geoip", optional = true }
 http = { path = "./crates/http", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
+rate_limit = { path = "./crates/rate_limit", optional = true }
 
 [dev-dependencies]
 anyhow = "1"
