@@ -43,8 +43,16 @@ clean:
   @echo '==> Cleaning project target/*'
   cargo clean
 
+# Make sure we are running the right submodule versions
+update-submodules:
+  git submodule update --init --recursive
+
 # Lint the project for any quality issues
-lint: check fmt clippy commit-check
+lint: clippy fmt commit-check
+
+unit: update-submodules lint test test-all
+
+devloop: unit fmt-imports
 
 # Run project linter
 clippy:
@@ -53,7 +61,7 @@ clippy:
 
   if command -v cargo-clippy >/dev/null; then
     echo '==> Running clippy'
-    cargo clippy --workspace --all-features --tests -- -D clippy::all -W clippy::style
+    cargo clippy --workspace --all-features --all-targets -- -D warnings
   else
     echo '==> clippy not found in PATH, skipping'
     echo '    ^^^^^^ To install `rustup component add clippy`, see https://github.com/rust-lang/rust-clippy for details'
@@ -66,10 +74,21 @@ fmt:
 
   if command -v cargo-fmt >/dev/null; then
     echo '==> Running rustfmt'
-    cargo +nightly fmt --all -- --check
+    cargo +nightly fmt --all
   else
     echo '==> rustfmt not found in PATH, skipping'
     echo '    ^^^^^^ To install `rustup component add rustfmt`, see https://github.com/rust-lang/rustfmt for details'
+  fi
+
+fmt-imports:
+  #!/bin/bash
+  set -euo pipefail
+
+  if command -v cargo-fmt >/dev/null; then
+    echo '==> Running rustfmt'
+    cargo +nightly fmt -- --config group_imports=StdExternalCrate,imports_granularity=One
+  else
+    echo '==> rustfmt not found in PATH, skipping'
   fi
 
 # Run commit checker
