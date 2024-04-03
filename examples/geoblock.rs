@@ -34,7 +34,7 @@ fn resolve_ip(_addr: IpAddr) -> geoip2::City<'static> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let resolver: LocalResolver = LocalResolver::new(Some(|caller| resolve_ip(caller)), None);
+    let resolver: LocalResolver = LocalResolver::new(Some(resolve_ip), None);
     // The number after the colon is the ISO code of the subdivision when you don't
     // want to block the whole country.
     let blocked_countries = vec!["CU:12".into(), "IR".into(), "KP".into()];

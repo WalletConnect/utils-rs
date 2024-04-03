@@ -174,15 +174,16 @@ pub trait FutureExt {
     /// # async fn example() {
     /// let token = CancellationToken::new();
     ///
-    /// let answer = async {
-    ///     tokio::time::sleep(Duration::from_millis(500)).await;
-    ///     42
-    /// }
-    /// .with_cancellation(token.clone())
-    /// .on_cancel(async {
-    ///     // Run some cleanup routine...
-    /// })
-    /// .spawn("");
+    /// let answer = tokio::task::spawn(
+    ///     async {
+    ///         tokio::time::sleep(Duration::from_millis(500)).await;
+    ///         42
+    ///     }
+    ///     .with_cancellation(token.clone())
+    ///     .on_cancel(async {
+    ///         // Run some cleanup routine...
+    ///     }),
+    /// );
     ///
     /// tokio::time::sleep(Duration::from_millis(100)).await;
     /// token.cancel();
