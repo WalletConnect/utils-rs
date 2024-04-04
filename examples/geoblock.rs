@@ -1,5 +1,6 @@
 use {
-    hyper::{Body, Request, Response, StatusCode},
+    axum::body::Body,
+    hyper::{Request, Response, StatusCode},
     std::{convert::Infallible, net::IpAddr},
     tower::{Service, ServiceBuilder, ServiceExt},
     wc::geoip::{
