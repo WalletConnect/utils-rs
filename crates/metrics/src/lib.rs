@@ -1,9 +1,7 @@
 pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 use {
-    opentelemetry::{
-        metrics::{Meter, MeterProvider as _},
-        sdk::metrics::MeterProvider,
-    },
+    opentelemetry::metrics::{Meter, MeterProvider as _},
+    opentelemetry_sdk::metrics::MeterProvider,
     prometheus::{Error as PrometheusError, Registry, TextEncoder},
     std::{
         sync::{Arc, Mutex},
