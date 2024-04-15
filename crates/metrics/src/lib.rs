@@ -1,7 +1,7 @@
 pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 use {
-    opentelemetry::metrics::{Meter, MeterProvider as _},
-    opentelemetry_sdk::metrics::MeterProvider,
+    opentelemetry_sdk::metrics::SdkMeterProvider,
+    otel::metrics::{Meter, MeterProvider},
     prometheus::{Error as PrometheusError, Registry, TextEncoder},
     std::{
         sync::{Arc, Mutex},
@@ -25,7 +25,7 @@ static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
         .with_registry(registry.clone())
         .build()
         .unwrap();
-    let provider = MeterProvider::builder()
+    let provider = SdkMeterProvider::builder()
         .with_reader(prometheus_exporter)
         .build();
     let meter = provider.meter(service_name);
