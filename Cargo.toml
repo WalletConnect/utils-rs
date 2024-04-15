@@ -37,7 +37,7 @@ profiler = ["alloc/profiler"]
 rate_limit = ["dep:rate_limit"]
 
 [workspace.dependencies]
-aws-sdk-s3 = "1.13"
+aws-sdk-s3 = "1.21.0"
 
 [dependencies]
 alloc = { path = "./crates/alloc", optional = true }
@@ -53,9 +53,9 @@ rate_limit = { path = "./crates/rate_limit", optional = true }
 anyhow = "1"
 structopt = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["full"] }
-hyper = { version = "0.14", features = ["full"] }
+hyper = { version = "1.2.0", features = ["full"] }
 tower = { version = "0.4", features = ["util", "filter"] }
-axum = "0.6.1"
+axum = "0.7.5"
 
 [[example]]
 name = "alloc_profiler"
