@@ -99,9 +99,7 @@ impl OtelTaskMetricsRecorder {
 
 impl TaskMetricsRecorder for OtelTaskMetricsRecorder {
     fn record_task_started(&self) {
-        self.inner
-            .tasks_started
-            .add(&otel::Context::new(), 1, &self.combine_attributes());
+        self.inner.tasks_started.add(1, &self.combine_attributes());
     }
 
     fn record_task_finished(
@@ -117,18 +115,12 @@ impl TaskMetricsRecorder for OtelTaskMetricsRecorder {
         let mut attrs = self.combine_attributes();
         attrs.push(otel::KeyValue::new("completed", completed));
 
-        let ctx = otel::Context::new();
+        self.inner.total_duration.record(total_duration_ms, &attrs);
 
-        self.inner
-            .total_duration
-            .record(&ctx, total_duration_ms, &attrs);
+        self.inner.poll_duration.record(poll_duration_ms, &attrs);
 
-        self.inner
-            .poll_duration
-            .record(&ctx, poll_duration_ms, &attrs);
-
-        self.inner.poll_entries.add(&ctx, poll_entries, &attrs);
-        self.inner.tasks_finished.add(&ctx, 1, &attrs);
+        self.inner.poll_entries.add(poll_entries, &attrs);
+        self.inner.tasks_finished.add(1, &attrs);
     }
 }
 

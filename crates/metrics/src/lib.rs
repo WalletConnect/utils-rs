@@ -1,14 +1,8 @@
 pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 use {
-    opentelemetry::{
-        metrics::{Meter, MeterProvider},
-        sdk::{
-            export::metrics::aggregation,
-            metrics::{processors, selectors},
-        },
-    },
-    opentelemetry_prometheus::PrometheusExporter,
-    prometheus::{Error as PrometheusError, TextEncoder},
+    opentelemetry_sdk::metrics::SdkMeterProvider,
+    otel::metrics::{Meter, MeterProvider},
+    prometheus::{Error as PrometheusError, Registry, TextEncoder},
     std::{
         sync::{Arc, Mutex},
         time::Duration,
@@ -26,26 +20,17 @@ static SERVICE_NAME: Mutex<Option<&str>> = Mutex::new(None);
 static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
     let service_name = SERVICE_NAME.lock().unwrap().unwrap_or(DEFAULT_SERVICE_NAME);
 
-    let controller = otel::sdk::metrics::controllers::basic(processors::factory(
-        selectors::simple::histogram(vec![]),
-        aggregation::cumulative_temporality_selector(),
-    ))
-    .with_resource(otel::sdk::Resource::new(vec![otel::KeyValue::new(
-        "service_name",
-        service_name,
-    )]))
-    .build();
+    let registry = Registry::new();
+    let prometheus_exporter = opentelemetry_prometheus::exporter()
+        .with_registry(registry.clone())
+        .build()
+        .unwrap();
+    let provider = SdkMeterProvider::builder()
+        .with_reader(prometheus_exporter)
+        .build();
+    let meter = provider.meter(service_name);
 
-    let prometheus_exporter = opentelemetry_prometheus::exporter(controller).init();
-    let meter = prometheus_exporter
-        .meter_provider()
-        .unwrap()
-        .meter(service_name);
-
-    Arc::new(ServiceMetrics {
-        meter,
-        prometheus_exporter,
-    })
+    Arc::new(ServiceMetrics { registry, meter })
 });
 
 /// Global application metrics access.
@@ -53,8 +38,8 @@ static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
 /// The main functionality is to provide global access to opentelemetry's
 /// [`Meter`].
 pub struct ServiceMetrics {
+    registry: Registry,
     meter: Meter,
-    prometheus_exporter: PrometheusExporter,
 }
 
 impl ServiceMetrics {
@@ -81,7 +66,7 @@ impl ServiceMetrics {
 
     /// Generates export data in Prometheus format, serialized into string.
     pub fn export() -> Result<String, PrometheusError> {
-        let data = Self::get().prometheus_exporter.registry().gather();
+        let data = Self::get().registry.gather();
         TextEncoder::new().encode_to_string(&data)
     }
 

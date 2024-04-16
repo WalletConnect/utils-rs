@@ -19,7 +19,7 @@ macro_rules! gauge {
     }};
 
     ($name:expr, $value:expr, $tags:expr) => {{
-        $crate::gauge!($name).observe(&$crate::otel::Context::new(), $value as u64, $tags);
+        $crate::gauge!($name).observe($value as u64, $tags);
     }};
 }
 
@@ -39,7 +39,7 @@ macro_rules! histogram {
     }};
 
     ($name:expr, $value:expr, $tags:expr) => {{
-        $crate::histogram!($name).record(&$crate::otel::Context::new(), $value as f64, $tags);
+        $crate::histogram!($name).record($value as f64, $tags);
     }};
 }
 
@@ -59,6 +59,6 @@ macro_rules! counter {
     }};
 
     ($name:expr, $value:expr, $tags:expr) => {{
-        $crate::counter!($name).add(&$crate::otel::Context::new(), $value as u64, $tags);
+        $crate::counter!($name).add($value as u64, $tags);
     }};
 }
