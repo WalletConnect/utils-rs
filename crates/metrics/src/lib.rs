@@ -1,5 +1,5 @@
-pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 use {
+    custom_aggregation_selector::CustomAggregationSelector,
     opentelemetry_sdk::metrics::SdkMeterProvider,
     otel::metrics::{Meter, MeterProvider},
     prometheus::{Error as PrometheusError, Registry, TextEncoder},
@@ -8,7 +8,9 @@ use {
         time::Duration,
     },
 };
+pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 
+pub mod custom_aggregation_selector;
 pub mod future;
 pub mod macros;
 pub mod task;
@@ -22,6 +24,7 @@ static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
 
     let registry = Registry::new();
     let prometheus_exporter = opentelemetry_prometheus::exporter()
+        .with_aggregation_selector(CustomAggregationSelector::new())
         .with_registry(registry.clone())
         .build()
         .unwrap();
