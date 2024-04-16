@@ -1,6 +1,13 @@
+pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 use {
-    custom_aggregation_selector::CustomAggregationSelector,
-    opentelemetry_sdk::metrics::SdkMeterProvider,
+    opentelemetry_sdk::metrics::{
+        new_view,
+        Aggregation,
+        Instrument,
+        InstrumentKind,
+        SdkMeterProvider,
+        Stream,
+    },
     otel::metrics::{Meter, MeterProvider},
     prometheus::{Error as PrometheusError, Registry, TextEncoder},
     std::{
@@ -8,7 +15,6 @@ use {
         time::Duration,
     },
 };
-pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 
 pub mod custom_aggregation_selector;
 pub mod future;
@@ -24,12 +30,27 @@ static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
 
     let registry = Registry::new();
     let prometheus_exporter = opentelemetry_prometheus::exporter()
-        .with_aggregation_selector(CustomAggregationSelector::new())
+        // .with_aggregation_selector(CustomAggregationSelector::new())
         .with_registry(registry.clone())
         .build()
         .unwrap();
     let provider = SdkMeterProvider::builder()
         .with_reader(prometheus_exporter)
+        .with_view(
+            new_view(
+                {
+                    let mut instrument = Instrument::new();
+                    instrument.kind = Some(InstrumentKind::Histogram);
+                    instrument
+                },
+                Stream::new().aggregation(Aggregation::Base2ExponentialHistogram {
+                    max_size: 160,
+                    max_scale: 20,
+                    record_min_max: true,
+                }),
+            )
+            .unwrap(),
+        )
         .build();
     let meter = provider.meter(service_name);
 
