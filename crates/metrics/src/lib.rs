@@ -1,4 +1,10 @@
-pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
+pub use {
+    future::*,
+    once_cell::sync::Lazy,
+    opentelemetry as otel,
+    opentelemetry_sdk as otel_sdk,
+    task::*,
+};
 use {
     opentelemetry_sdk::metrics::{MeterProviderBuilder, SdkMeterProvider},
     otel::{
@@ -75,7 +81,8 @@ impl ServiceMetrics {
         Lazy::force(&METRICS_CORE);
     }
 
-    /// Initializes service metrics with the specified name and meter provider builder.
+    /// Initializes service metrics with the specified name and meter provider
+    /// builder.
     ///
     /// # Panics
     ///
