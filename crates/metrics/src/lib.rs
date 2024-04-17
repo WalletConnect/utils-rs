@@ -1,14 +1,10 @@
 pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
 use {
-    opentelemetry_sdk::metrics::{
-        new_view,
-        Aggregation,
-        Instrument,
-        InstrumentKind,
-        SdkMeterProvider,
-        Stream,
+    opentelemetry_sdk::metrics::{MeterProviderBuilder, SdkMeterProvider},
+    otel::{
+        global,
+        metrics::{Meter, MeterProvider},
     },
-    otel::metrics::{Meter, MeterProvider},
     prometheus::{Error as PrometheusError, Registry, TextEncoder},
     std::{
         sync::{Arc, Mutex},
@@ -16,7 +12,6 @@ use {
     },
 };
 
-pub mod custom_aggregation_selector;
 pub mod future;
 pub mod macros;
 pub mod task;
@@ -25,34 +20,26 @@ const DEFAULT_SERVICE_NAME: &str = "unknown_service";
 
 static SERVICE_NAME: Mutex<Option<&str>> = Mutex::new(None);
 
+type MeterProviderBuilderIntercept = fn(MeterProviderBuilder) -> MeterProviderBuilder;
+static METER_PROVIDER_BUILDER: Mutex<Option<MeterProviderBuilderIntercept>> = Mutex::new(None);
+
 static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
     let service_name = SERVICE_NAME.lock().unwrap().unwrap_or(DEFAULT_SERVICE_NAME);
+    let meter_provider_builder = *METER_PROVIDER_BUILDER.lock().unwrap();
 
     let registry = Registry::new();
     let prometheus_exporter = opentelemetry_prometheus::exporter()
-        // .with_aggregation_selector(CustomAggregationSelector::new())
         .with_registry(registry.clone())
         .build()
         .unwrap();
-    let provider = SdkMeterProvider::builder()
-        .with_reader(prometheus_exporter)
-        .with_view(
-            new_view(
-                {
-                    let mut instrument = Instrument::new();
-                    instrument.kind = Some(InstrumentKind::Histogram);
-                    instrument
-                },
-                Stream::new().aggregation(Aggregation::Base2ExponentialHistogram {
-                    max_size: 160,
-                    max_scale: 20,
-                    record_min_max: true,
-                }),
-            )
-            .unwrap(),
-        )
-        .build();
+    let mut builder = SdkMeterProvider::builder().with_reader(prometheus_exporter);
+    if let Some(with_view) = meter_provider_builder {
+        builder = with_view(builder);
+    };
+    let provider = builder.build();
     let meter = provider.meter(service_name);
+
+    global::set_meter_provider(provider);
 
     Arc::new(ServiceMetrics { registry, meter })
 });
@@ -85,6 +72,21 @@ impl ServiceMetrics {
     /// initialize.
     pub fn init_with_name(name: &'static str) {
         *SERVICE_NAME.lock().unwrap() = Some(name);
+        Lazy::force(&METRICS_CORE);
+    }
+
+    /// Initializes service metrics with the specified name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either prometheus exporter or opentelemetry meter fails to
+    /// initialize.
+    pub fn init_with_name_and_meter_provider_builder(
+        name: &'static str,
+        meter_provider_builder: MeterProviderBuilderIntercept,
+    ) {
+        *SERVICE_NAME.lock().unwrap() = Some(name);
+        *METER_PROVIDER_BUILDER.lock().unwrap() = Some(meter_provider_builder);
         Lazy::force(&METRICS_CORE);
     }
 
