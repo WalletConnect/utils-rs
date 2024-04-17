@@ -26,12 +26,12 @@ const DEFAULT_SERVICE_NAME: &str = "unknown_service";
 
 static SERVICE_NAME: Mutex<Option<&str>> = Mutex::new(None);
 
-pub type MeterProviderBuilderIntercept = fn(MeterProviderBuilder) -> MeterProviderBuilder;
-static METER_PROVIDER_BUILDER: Mutex<Option<MeterProviderBuilderIntercept>> = Mutex::new(None);
+pub type MeterProviderBuilderFn = fn(MeterProviderBuilder) -> MeterProviderBuilder;
+static METER_PROVIDER_BUILDER_FN: Mutex<Option<MeterProviderBuilderFn>> = Mutex::new(None);
 
 static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
     let service_name = SERVICE_NAME.lock().unwrap().unwrap_or(DEFAULT_SERVICE_NAME);
-    let meter_provider_builder = *METER_PROVIDER_BUILDER.lock().unwrap();
+    let meter_provider_builder = *METER_PROVIDER_BUILDER_FN.lock().unwrap();
 
     let registry = Registry::new();
     let prometheus_exporter = opentelemetry_prometheus::exporter()
@@ -39,8 +39,8 @@ static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
         .build()
         .unwrap();
     let mut builder = SdkMeterProvider::builder().with_reader(prometheus_exporter);
-    if let Some(with_view) = meter_provider_builder {
-        builder = with_view(builder);
+    if let Some(buidler_fn) = meter_provider_builder {
+        builder = buidler_fn(builder);
     };
     let provider = builder.build();
     let meter = provider.meter(service_name);
@@ -88,12 +88,12 @@ impl ServiceMetrics {
     ///
     /// Panics if either prometheus exporter or opentelemetry meter fails to
     /// initialize.
-    pub fn init_with_name_and_meter_provider_builder(
+    pub fn init_with_meter_builder(
         name: &'static str,
-        meter_provider_builder: MeterProviderBuilderIntercept,
+        meter_provider_builder: MeterProviderBuilderFn,
     ) {
         *SERVICE_NAME.lock().unwrap() = Some(name);
-        *METER_PROVIDER_BUILDER.lock().unwrap() = Some(meter_provider_builder);
+        *METER_PROVIDER_BUILDER_FN.lock().unwrap() = Some(meter_provider_builder);
         Lazy::force(&METRICS_CORE);
     }
 
