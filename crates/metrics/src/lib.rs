@@ -20,7 +20,7 @@ const DEFAULT_SERVICE_NAME: &str = "unknown_service";
 
 static SERVICE_NAME: Mutex<Option<&str>> = Mutex::new(None);
 
-type MeterProviderBuilderIntercept = fn(MeterProviderBuilder) -> MeterProviderBuilder;
+pub type MeterProviderBuilderIntercept = fn(MeterProviderBuilder) -> MeterProviderBuilder;
 static METER_PROVIDER_BUILDER: Mutex<Option<MeterProviderBuilderIntercept>> = Mutex::new(None);
 
 static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
@@ -75,7 +75,7 @@ impl ServiceMetrics {
         Lazy::force(&METRICS_CORE);
     }
 
-    /// Initializes service metrics with the specified name.
+    /// Initializes service metrics with the specified name and meter provider builder.
     ///
     /// # Panics
     ///
