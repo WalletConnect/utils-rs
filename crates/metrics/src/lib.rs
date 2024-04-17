@@ -1,7 +1,16 @@
-pub use {future::*, once_cell::sync::Lazy, opentelemetry as otel, task::*};
+pub use {
+    future::*,
+    once_cell::sync::Lazy,
+    opentelemetry as otel,
+    opentelemetry_sdk as otel_sdk,
+    task::*,
+};
 use {
-    opentelemetry_sdk::metrics::SdkMeterProvider,
-    otel::metrics::{Meter, MeterProvider},
+    opentelemetry_sdk::metrics::{MeterProviderBuilder, SdkMeterProvider},
+    otel::{
+        global,
+        metrics::{Meter, MeterProvider},
+    },
     prometheus::{Error as PrometheusError, Registry, TextEncoder},
     std::{
         sync::{Arc, Mutex},
@@ -17,18 +26,26 @@ const DEFAULT_SERVICE_NAME: &str = "unknown_service";
 
 static SERVICE_NAME: Mutex<Option<&str>> = Mutex::new(None);
 
+pub type MeterProviderBuilderFn = fn(MeterProviderBuilder) -> MeterProviderBuilder;
+static METER_PROVIDER_BUILDER_FN: Mutex<Option<MeterProviderBuilderFn>> = Mutex::new(None);
+
 static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
     let service_name = SERVICE_NAME.lock().unwrap().unwrap_or(DEFAULT_SERVICE_NAME);
+    let meter_provider_builder = *METER_PROVIDER_BUILDER_FN.lock().unwrap();
 
     let registry = Registry::new();
     let prometheus_exporter = opentelemetry_prometheus::exporter()
         .with_registry(registry.clone())
         .build()
         .unwrap();
-    let provider = SdkMeterProvider::builder()
-        .with_reader(prometheus_exporter)
-        .build();
+    let mut builder = SdkMeterProvider::builder().with_reader(prometheus_exporter);
+    if let Some(buidler_fn) = meter_provider_builder {
+        builder = buidler_fn(builder);
+    };
+    let provider = builder.build();
     let meter = provider.meter(service_name);
+
+    global::set_meter_provider(provider);
 
     Arc::new(ServiceMetrics { registry, meter })
 });
@@ -61,6 +78,22 @@ impl ServiceMetrics {
     /// initialize.
     pub fn init_with_name(name: &'static str) {
         *SERVICE_NAME.lock().unwrap() = Some(name);
+        Lazy::force(&METRICS_CORE);
+    }
+
+    /// Initializes service metrics with the specified name and meter provider
+    /// builder.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either prometheus exporter or opentelemetry meter fails to
+    /// initialize.
+    pub fn init_with_meter_builder(
+        name: &'static str,
+        meter_provider_builder: MeterProviderBuilderFn,
+    ) {
+        *SERVICE_NAME.lock().unwrap() = Some(name);
+        *METER_PROVIDER_BUILDER_FN.lock().unwrap() = Some(meter_provider_builder);
         Lazy::force(&METRICS_CORE);
     }
 
