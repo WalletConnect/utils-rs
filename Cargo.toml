@@ -33,6 +33,7 @@ geoblock = ["geoip/middleware"]
 geoip = ["dep:geoip"]
 http = []
 metrics = ["dep:metrics", "future/metrics", "alloc/metrics", "http/metrics"]
+future_metrics = ["dep:future_metrics"]
 profiler = ["alloc/profiler"]
 rate_limit = ["dep:rate_limit"]
 
@@ -47,6 +48,7 @@ future = { path = "./crates/future", optional = true }
 geoip = { path = "./crates/geoip", optional = true }
 http = { path = "./crates/http", optional = true }
 metrics = { path = "./crates/metrics", optional = true }
+future_metrics = { path = "./crates/future_metrics", optional = true }
 rate_limit = { path = "./crates/rate_limit", optional = true }
 
 [dev-dependencies]
