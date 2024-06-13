@@ -10,19 +10,19 @@ use {
 
 /// Target specified in [`metrics::Metadata`] for all metrics produced by this
 /// crate.
-pub const METADATA_TARGET: &'static str = "future_metrics";
+pub const METADATA_TARGET: &str = "future_metrics";
 
 /// Metric names used by this crate.
 pub mod metric_name {
-    pub const FUTURE_DURATION: &'static str = "future_duration";
+    pub const FUTURE_DURATION: &str = "future_duration";
 
-    pub const FUTURES_CREATED: &'static str = "futures_created";
-    pub const FUTURES_STARTED: &'static str = "futures_started";
-    pub const FUTURES_FINISHED: &'static str = "futures_finished";
-    pub const FUTURES_CANCELLED: &'static str = "futures_cancelled";
+    pub const FUTURES_CREATED: &str = "futures_created";
+    pub const FUTURES_STARTED: &str = "futures_started";
+    pub const FUTURES_FINISHED: &str = "futures_finished";
+    pub const FUTURES_CANCELLED: &str = "futures_cancelled";
 
-    pub const FUTURE_POLL_DURATION: &'static str = "future_poll_duration";
-    pub const FUTURE_POLL_DURATION_TOTAL: &'static str = "future_poll_duration_total";
+    pub const FUTURE_POLL_DURATION: &str = "future_poll_duration";
+    pub const FUTURE_POLL_DURATION_TOTAL: &str = "future_poll_duration_total";
 }
 
 /// Creates a new label identifying a future by its name.
