@@ -27,12 +27,7 @@ pub mod metric_name {
 
 /// Creates a new label identifying a future by its name.
 pub const fn future_name(s: &'static str) -> Label {
-    label("future_name", s)
-}
-
-/// Creates a new static [`Label`].
-pub const fn label(key: &'static str, value: &'static str) -> Label {
-    Label::from_static_parts(key, value)
+    Label::from_static_parts("future_name", s)
 }
 
 pub trait FutureExt: Sized {
