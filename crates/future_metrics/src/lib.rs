@@ -113,6 +113,8 @@ impl<F: Future> Future for Metered<F> {
         state.polls_count += 1;
 
         if result.is_ready() && !state.is_finished {
+            state.is_finished = true;
+
             state.metrics.finished.increment(1);
 
             if let Some(started_at) = state.started_at {
