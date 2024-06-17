@@ -109,10 +109,10 @@ impl<F: Future> Future for Metered<F> {
         let poll_duration = poll_started_at.elapsed();
 
         state.poll_duration_sum += poll_duration;
-        state.poll_duration_sum = state.poll_duration_max.max(poll_duration);
+        state.poll_duration_max = state.poll_duration_max.max(poll_duration);
         state.polls_count += 1;
 
-        if !state.is_finished {
+        if result.is_ready() && !state.is_finished {
             state.metrics.finished.increment(1);
 
             if let Some(started_at) = state.started_at {
