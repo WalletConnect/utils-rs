@@ -1,5 +1,5 @@
 use {
-    metrics::{Counter, Histogram, Key, Label, Level, Metadata},
+    metrics::{Counter, Gauge, Histogram, Key, Label, Level, Metadata},
     std::{
         future::Future,
         pin::Pin,
@@ -15,14 +15,16 @@ pub const METADATA_TARGET: &str = "future_metrics";
 /// Metric names used by this crate.
 pub mod metric_name {
     pub const FUTURE_DURATION: &str = "future_duration";
+    pub const FUTURE_CANCELLED_DURATION: &str = "future_cancelled_duration";
 
-    pub const FUTURES_CREATED: &str = "futures_created";
-    pub const FUTURES_STARTED: &str = "futures_started";
-    pub const FUTURES_FINISHED: &str = "futures_finished";
-    pub const FUTURES_CANCELLED: &str = "futures_cancelled";
+    pub const FUTURES_CREATED: &str = "futures_created_count";
+    pub const FUTURES_STARTED: &str = "futures_started_count";
+    pub const FUTURES_FINISHED: &str = "futures_finished_count";
+    pub const FUTURES_CANCELLED: &str = "futures_cancelled_count";
 
     pub const FUTURE_POLL_DURATION: &str = "future_poll_duration";
-    pub const FUTURE_POLL_DURATION_TOTAL: &str = "future_poll_duration_total";
+    pub const FUTURE_POLL_DURATION_MAX: &str = "future_poll_duration_max";
+    pub const FUTURE_POLLS: &str = "future_polls_count";
 }
 
 /// Creates a new label identifying a future by its name.
@@ -63,7 +65,9 @@ struct State {
     started_at: Option<Instant>,
     is_finished: bool,
 
-    poll_duration_total: Duration,
+    poll_duration_sum: Duration,
+    poll_duration_max: Duration,
+    polls_count: usize,
 
     metrics: Metrics,
 }
@@ -79,7 +83,9 @@ impl<F> Metered<F> {
             state: State {
                 started_at: None,
                 is_finished: false,
-                poll_duration_total: Duration::from_secs(0),
+                poll_duration_sum: Duration::from_secs(0),
+                poll_duration_max: Duration::from_secs(0),
+                polls_count: 0,
                 metrics,
             },
         }
@@ -91,26 +97,27 @@ impl<F: Future> Future for Metered<F> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let mut this = self.project();
-        let s = &mut this.state;
+        let state = &mut this.state;
 
-        if s.started_at.is_none() {
-            s.started_at = Some(Instant::now());
-            s.metrics.started.increment(1);
+        if state.started_at.is_none() {
+            state.started_at = Some(Instant::now());
+            state.metrics.started.increment(1);
         }
 
         let poll_started_at = Instant::now();
         let result = this.future.poll(cx);
         let poll_duration = poll_started_at.elapsed();
 
-        s.metrics.poll_duration.record(poll_duration);
-        s.poll_duration_total += poll_duration;
+        state.poll_duration_sum += poll_duration;
+        state.poll_duration_sum = state.poll_duration_max.max(poll_duration);
+        state.polls_count += 1;
 
-        if result.is_ready() && !s.is_finished {
-            s.is_finished = true;
-            s.metrics.finished.increment(1);
-            s.metrics
-                .duration
-                .record(s.started_at.unwrap_or(poll_started_at).elapsed())
+        if !state.is_finished {
+            state.metrics.finished.increment(1);
+
+            if let Some(started_at) = state.started_at {
+                state.metrics.duration.record(started_at.elapsed())
+            }
         }
 
         result
@@ -121,19 +128,27 @@ impl Drop for State {
     fn drop(&mut self) {
         if !self.is_finished {
             self.metrics.cancelled.increment(1);
+
             if let Some(started_at) = self.started_at {
-                self.metrics.duration.record(started_at.elapsed())
+                self.metrics.cancelled_duration.record(started_at.elapsed())
             }
         }
 
         self.metrics
-            .poll_duration_total
-            .record(duration_as_millis_f64(self.poll_duration_total));
+            .poll_duration
+            .record(duration_as_millis_f64(self.poll_duration_sum));
+
+        self.metrics
+            .poll_duration_max
+            .set(duration_as_millis_f64(self.poll_duration_max));
+
+        self.metrics.polls.increment(self.polls_count as u64);
     }
 }
 
 struct Metrics {
     duration: Histogram,
+    cancelled_duration: Histogram,
 
     created: Counter,
     started: Counter,
@@ -141,7 +156,8 @@ struct Metrics {
     cancelled: Counter,
 
     poll_duration: Histogram,
-    poll_duration_total: Histogram,
+    poll_duration_max: Gauge,
+    polls: Counter,
 }
 
 impl Metrics {
@@ -152,6 +168,10 @@ impl Metrics {
             Self {
                 duration: r.register_histogram(
                     &Key::from_static_parts(metric_name::FUTURE_DURATION, labels),
+                    &metadata,
+                ),
+                cancelled_duration: r.register_histogram(
+                    &Key::from_static_parts(metric_name::FUTURE_CANCELLED_DURATION, labels),
                     &metadata,
                 ),
                 created: r.register_counter(
@@ -174,8 +194,12 @@ impl Metrics {
                     &Key::from_static_parts(metric_name::FUTURE_POLL_DURATION, labels),
                     &metadata,
                 ),
-                poll_duration_total: r.register_histogram(
-                    &Key::from_static_parts(metric_name::FUTURE_POLL_DURATION_TOTAL, labels),
+                poll_duration_max: r.register_gauge(
+                    &Key::from_static_parts(metric_name::FUTURE_POLL_DURATION_MAX, labels),
+                    &metadata,
+                ),
+                polls: r.register_counter(
+                    &Key::from_static_parts(metric_name::FUTURE_POLLS, labels),
                     &metadata,
                 ),
             }
