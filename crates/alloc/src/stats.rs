@@ -87,58 +87,56 @@ pub fn collect_jemalloc_stats() -> Result<JemallocStats, Error> {
 
 #[cfg(feature = "metrics")]
 pub fn update_jemalloc_metrics() -> Result<(), Error> {
-    use metrics::{gauge, otel};
+    use metrics::gauge;
 
     let stats = collect_jemalloc_stats()?;
     let total = &stats.total;
 
     // Total number of bytes allocated by the application. This corresponds to
     // `stats.allocated` in jemalloc's API.
-    gauge!("jemalloc_memory_allocated", total.allocated);
+    gauge!("jemalloc_memory_allocated").set(total.allocated as f64);
 
     // Total number of bytes in active pages allocated by the application. This
     // corresponds to `stats.active` in jemalloc's API.
-    gauge!("jemalloc_memory_active", total.active);
+    gauge!("jemalloc_memory_active").set(total.active as f64);
 
     // Total number of bytes dedicated to `jemalloc` metadata. This corresponds to
     // `stats.metadata` in jemalloc's API.
-    gauge!("jemalloc_memory_metadata", total.metadata);
+    gauge!("jemalloc_memory_metadata").set(total.metadata as f64);
 
     // Total number of bytes in physically resident data pages mapped by the
     // allocator. This corresponds to `stats.resident` in jemalloc's API.
-    gauge!("jemalloc_memory_resident", total.resident);
+    gauge!("jemalloc_memory_resident").set(total.resident as f64);
 
     // Total number of bytes in active extents mapped by the allocator. This
     // corresponds to `stats.mapped` in jemalloc's API.
-    gauge!("jemalloc_memory_mapped", total.mapped);
+    gauge!("jemalloc_memory_mapped").set(total.mapped as f64);
 
     // Total number of bytes in virtual memory mappings that were retained rather
     // than being returned to the operating system via e.g. `munmap(2)`. This
     // corresponds to `stats.retained` in jemalloc's API.
-    gauge!("jemalloc_memory_retained", total.retained);
+    gauge!("jemalloc_memory_retained").set(total.retained as f64);
 
     let bin_const = stats.arena_constants.bin.iter();
     let bin_stats = stats.arena_stats.merged.bins.iter();
 
     for (bin_const, bin_stats) in bin_const.zip(bin_stats) {
-        let tags = [otel::KeyValue::new(
-            "bin_size",
-            bin_const.size.try_into().unwrap_or(0i64),
-        )];
+        let gauge =
+            |name, value| gauge!(name, "bin_size" => bin_const.size.to_string()).set(value as f64);
 
         // Cumulative number of times a bin region of the corresponding size class was
         // allocated from the arena, whether to fill the relevant tcache if opt.tcache
         // is  enabled, or to directly satisfy an allocation request otherwise.
-        gauge!("jemalloc_memory_bin_nmalloc", bin_stats.nmalloc, &tags);
+        gauge("jemalloc_memory_bin_nmalloc", bin_stats.nmalloc);
 
         // Cumulative number of times a bin region of the corresponding size class was
         // returned to the arena, whether to flush the relevant tcache if opt.tcache is
         // enabled, or to directly deallocate an allocation otherwise.
-        gauge!("jemalloc_memory_bin_ndalloc", bin_stats.ndalloc, &tags);
+        gauge("jemalloc_memory_bin_ndalloc", bin_stats.ndalloc);
 
         // Cumulative number of allocation requests satisfied by bin regions of the
         // corresponding size class.
-        gauge!("jemalloc_memory_bin_nrequests", bin_stats.nrequests, &tags);
+        gauge("jemalloc_memory_bin_nrequests", bin_stats.nrequests);
     }
 
     Ok(())
