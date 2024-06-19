@@ -1203,16 +1203,6 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "0.1.0"
-dependencies = [
- "future",
- "hyper 1.3.1",
- "metrics 0.1.0",
- "tokio",
-]
-
-[[package]]
-name = "http"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "601cbb57e577e2f5ef5be8e7b83f0f63994f25aa94d673e54a92d5c516d101f1"
@@ -3051,7 +3041,6 @@ dependencies = [
  "future",
  "future_metrics",
  "geoip",
- "http 0.1.0",
  "hyper 1.3.1",
  "metrics 0.1.0",
  "rate_limit",
