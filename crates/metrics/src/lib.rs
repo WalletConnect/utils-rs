@@ -19,6 +19,7 @@
 //!     enum_ordinalize::Ordinalize,
 //!     label_name,
 //!     BoolLabel,
+//!     Enum,
 //!     EnumLabel,
 //!     LabeledCounter2,
 //!     LabeledGauge3,
@@ -28,14 +29,14 @@
 //! };
 //!
 //! #[derive(Clone, Copy, Ordinalize)]
-//! enum MyEnumLabel {
+//! enum MyEnum {
 //!     A,
 //!     B,
 //! }
 //!
-//! impl EnumLabel for MyEnumLabel {
-//!     const NAME: &'static str = "my_enum_label";
+//! type MyEnumLabel = EnumLabel<{ label_name("my_enum_label") }, MyEnum>;
 //!
+//! impl Enum for MyEnum {
 //!     fn as_str(&self) -> &'static str {
 //!         match self {
 //!             Self::A => "a",
@@ -67,12 +68,12 @@
 //!
 //! COUNTER_A.increment(1);
 //! GAUGE_A.set(42);
-//! HISTOGRAM_A.record(1000, (MyEnumLabel::A,));
+//! HISTOGRAM_A.record(1000, (MyEnumLabel::new(MyEnum::A),));
 //! COUNTER_B.increment(2u64, (MyStringLabel::new("test"), MyBoolLabel::new(false)));
 //!
 //! let labels = (
 //!     MyU8StringLabel::new(&42),
-//!     MyEnumLabel::B,
+//!     MyEnumLabel::new(MyEnum::B),
 //!     MyBoolLabel::new(true),
 //! );
 //! GAUGE_B.decrement(2, labels);
@@ -81,7 +82,7 @@
 pub use {
     backend,
     enum_ordinalize,
-    label::{label_name, BoolLabel, EnumLabel, LabelName, StringLabel, WithLabel},
+    label::{label_name, BoolLabel, Enum, EnumLabel, LabelName, StringLabel, WithLabel},
     lazy::Lazy,
 };
 use {

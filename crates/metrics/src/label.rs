@@ -19,26 +19,6 @@ pub type Labeled2<T, A, B> = WithLabel<A, WithLabel<B, T>>;
 pub type Labeled3<T, A, B, C> = WithLabel<A, WithLabel<B, WithLabel<C, T>>>;
 pub type Labeled4<T, A, B, C, D> = WithLabel<A, WithLabel<B, WithLabel<C, WithLabel<D, T>>>>;
 
-/// Metric label defined as an `enum`.
-///
-/// The most efficient way to specify metric labels in runtime, metric lookups
-/// using enum labels are as fast as array indexing. Prefer using this when all
-/// of your possible label values are known at the compile time.
-///
-/// To implement this `trait` you also need to derive [`Ordinalize`] for your
-/// `enum`.
-/// SAFETY: DO NOT use custom discriminant values (eg. `enum MyEnum { MyVariant
-/// = -1 }`), this will lead to either:
-/// - `panic` in runtime (only for builds with `debug_assertions`)
-/// - incorrect label resolution
-pub trait EnumLabel: Copy + Ordinalize<VariantType = i8> {
-    /// Name of the label.
-    const NAME: &'static str;
-
-    /// String representation of the label value.
-    fn as_str(&self) -> &'static str;
-}
-
 pub trait DynamicLabel<M> {
     type MetricCollection;
 }
@@ -77,23 +57,58 @@ where
     }
 }
 
-impl<L, M> DynamicLabel<M> for L
-where
-    L: EnumLabel,
-{
-    // TODO: Switch to `[(L, M); L::VARIANT_COUNT]` once generic parameters are
-    // allowed to be used in const expressions.
-    type MetricCollection = Vec<(L, M)>;
+/// Metric label using an `enum` as its value.
+///
+/// The most efficient way to specify metric labels in runtime, metric lookups
+/// using enum labels are as fast as array indexing. Prefer using this when all
+/// of your possible label values are known at the compile time.
+#[derive(Clone, Copy, Debug)]
+pub struct EnumLabel<const NAME: LabelName, T>(T);
+
+impl<const NAME: LabelName, T> EnumLabel<NAME, T> {
+    /// Creates a new [`EnumLabel`].
+    pub fn new(e: T) -> Self {
+        Self(e)
+    }
+
+    /// Convert this [`EnumLabel`] into the inner [`Enum`].
+    pub fn into_inner(self) -> T {
+        self.0
+    }
 }
 
-impl<L, M> Metric for WithLabel<L, M>
+/// `enum` used as the value in [`EnumLabel`]s.
+///
+/// To implement this `trait` you also need to derive [`Ordinalize`] for your
+/// `enum`.
+/// SAFETY: DO NOT use custom discriminant values (eg. `enum MyEnum { MyVariant
+/// = -1 }`), this will lead to either:
+/// - `panic` in runtime (only for builds with `debug_assertions`)
+/// - incorrect label resolution
+pub trait Enum: Copy + Ordinalize<VariantType = i8> {
+    /// String representation of this enum.
+    fn as_str(&self) -> &'static str;
+}
+
+impl<const NAME: LabelName, T, M> DynamicLabel<M> for EnumLabel<NAME, T>
 where
-    L: EnumLabel,
+    T: Enum,
+{
+    // TODO: Switch to `[(T, M); T::VARIANT_COUNT]` once generic parameters are
+    // allowed to be used in const expressions.
+    type MetricCollection = Vec<(T, M)>;
+}
+
+impl<const NAME: LabelName, T, M> Metric for WithLabel<EnumLabel<NAME, T>, M>
+where
+    T: Enum,
     M: Metric,
 {
     fn register(attrs: &Attrs) -> Self {
-        let metrics = L::VARIANTS.iter().map(|l| {
-            let label = Label::from_static_parts(L::NAME, l.as_str());
+        let name = const { resolve_label_name::<NAME>() };
+
+        let metrics = T::VARIANTS.iter().map(|l| {
+            let label = Label::from_static_parts(name, l.as_str());
             (*l, M::register(&attrs.with_label(label)))
         });
 
@@ -103,21 +118,22 @@ where
     }
 }
 
-impl<L, M> ResolveLabels<(L,)> for WithLabel<L, M>
+impl<const NAME: LabelName, T, M> ResolveLabels<(EnumLabel<NAME, T>,)>
+    for WithLabel<EnumLabel<NAME, T>, M>
 where
-    L: EnumLabel,
+    T: Enum,
     M: Metric,
 {
     type Target = M;
 
-    fn resolve_labels(&self, labels: (L,)) -> &M {
+    fn resolve_labels(&self, (label,): (EnumLabel<NAME, T>,)) -> &M {
         let debug_panic = || {
             if cfg!(debug_assertions) {
                 panic!("Invalid enum usage, custom discriminants must not be used")
             }
         };
 
-        let idx = labels.0.ordinal();
+        let idx = label.0.ordinal();
         let mut idx = if idx < 0 {
             debug_panic();
             0
