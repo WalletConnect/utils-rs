@@ -1,4 +1,4 @@
-use metrics::prometheus_exporter::PrometheusBuilder;
+use metrics_exporter_prometheus::PrometheusBuilder;
 
 #[global_allocator]
 static ALLOCATOR: wc::alloc::Jemalloc = wc::alloc::Jemalloc;

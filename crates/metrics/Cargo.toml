@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["future", "prometheus"]
+default = ["future"]
 future = ["dep:pin-project"]
-prometheus = ["dep:metrics-exporter-prometheus"]
 
 [dependencies]
 metrics = "0.23"
@@ -15,4 +14,3 @@ parking_lot = "0.12"
 enum-ordinalize = "4.3"
 arc-swap = "1.7"
 pin-project = { version = "1", optional = true }
-metrics-exporter-prometheus = { version = "0.15", optional = true }

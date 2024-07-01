@@ -97,8 +97,6 @@ mod lazy;
 pub mod future;
 #[cfg(feature = "future")]
 pub use future::{FutureExt, Metrics as FutureMetrics};
-#[cfg(feature = "prometheus")]
-pub use metrics_exporter_prometheus as prometheus_exporter;
 
 /// Builder of [`Lazy`] metrics.
 ///
