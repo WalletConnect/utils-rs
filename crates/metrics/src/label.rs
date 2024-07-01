@@ -145,6 +145,7 @@ where
 ///
 /// type MyLabel = BoolLabel<{ label_name("my_label") }>;
 /// ```
+#[derive(Clone, Copy, Debug)]
 pub struct BoolLabel<const NAME: LabelName>(bool);
 
 impl<const NAME: LabelName> BoolLabel<NAME> {
@@ -216,6 +217,7 @@ where
 ///
 /// type MyLabel = StringLabel<{ label_name("my_label") }>;
 /// ```
+#[derive(Clone, Copy, Debug)]
 pub struct StringLabel<const NAME: u128, T = String>(pub T);
 
 impl<const NAME: LabelName, T> StringLabel<NAME, T> {
