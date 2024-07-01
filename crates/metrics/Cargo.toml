@@ -3,11 +3,16 @@ name = "metrics"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["future", "prometheus"]
+future = ["dep:pin-project"]
+prometheus = ["dep:metrics-exporter-prometheus"]
+
 [dependencies]
-pin-project = "1"
-prometheus = "0.13"
-opentelemetry = { version = "0.22.0", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.22.1", features = ["metrics", "rt-tokio"] }
-opentelemetry-prometheus = "0.15"
-once_cell = "1.17"
-smallvec = "1.11"
+metrics = "0.23"
+smallvec = "1"
+parking_lot = "0.12"
+enum-ordinalize = "4.3"
+arc-swap = "1.7"
+pin-project = { version = "1", optional = true }
+metrics-exporter-prometheus = { version = "0.15", optional = true }
