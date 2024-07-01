@@ -8,7 +8,7 @@ use {
     enum_ordinalize::Ordinalize,
     parking_lot::Mutex,
     smallvec::SmallVec,
-    std::{borrow::Borrow, collections::HashMap, sync::Arc},
+    std::{borrow::Borrow, collections::HashMap, marker::PhantomData, sync::Arc},
 };
 
 pub type DynamicLabels = SmallVec<[Label; 4]>;
@@ -340,6 +340,49 @@ where
         };
 
         m
+    }
+}
+
+/// Makes any other label optional by accepting `Option` instead of the actual
+/// label value during the label resolution.
+pub struct Optional<T>(PhantomData<T>);
+
+impl<T, M> DynamicLabel<M> for Optional<T>
+where
+    T: DynamicLabel<M>,
+{
+    type MetricCollection = (M, WithLabel<T, M>);
+}
+
+impl<T, M> Metric for WithLabel<Optional<T>, M>
+where
+    T: DynamicLabel<M>,
+    M: Metric + 'static,
+    WithLabel<T, M>: Metric,
+{
+    fn register(attrs: &Attrs) -> Self {
+        Self {
+            collection: (
+                M::register(attrs),
+                <WithLabel<T, M> as Metric>::register(attrs),
+            ),
+        }
+    }
+}
+
+impl<T, U, M> ResolveLabels<(Option<U>,)> for WithLabel<Optional<T>, M>
+where
+    T: DynamicLabel<M>,
+    M: Metric,
+    WithLabel<T, M>: ResolveLabels<(U,), Target = M>,
+{
+    type Target = M;
+
+    fn resolve_labels(&self, (label,): (Option<U>,)) -> &M {
+        match label {
+            Some(l) => self.collection.1.resolve_labels((l,)),
+            None => &self.collection.0,
+        }
     }
 }
 

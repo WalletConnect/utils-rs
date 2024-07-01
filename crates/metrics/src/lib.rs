@@ -25,6 +25,7 @@
 //!     LabeledGauge3,
 //!     LabeledHistogram,
 //!     Lazy,
+//!     OptionalLabel,
 //!     StringLabel,
 //! };
 //!
@@ -63,7 +64,7 @@
 //!         .with_description("My labeled counter")
 //!         .build();
 //!
-//! static GAUGE_B: Lazy<LabeledGauge3<MyU8StringLabel, MyEnumLabel, MyBoolLabel>> =
+//! static GAUGE_B: Lazy<LabeledGauge3<MyU8StringLabel, MyEnumLabel, OptionalLabel<MyBoolLabel>>> =
 //!     metrics::new("gauge_b");
 //!
 //! COUNTER_A.increment(1);
@@ -71,18 +72,23 @@
 //! HISTOGRAM_A.record(1000, (MyEnumLabel::new(MyEnum::A),));
 //! COUNTER_B.increment(2u64, (MyStringLabel::new("test"), MyBoolLabel::new(false)));
 //!
-//! let labels = (
-//!     MyU8StringLabel::new(&42),
-//!     MyEnumLabel::new(MyEnum::B),
-//!     MyBoolLabel::new(true),
-//! );
+//! let labels = (MyU8StringLabel::new(&42), MyEnumLabel::new(MyEnum::B), None);
 //! GAUGE_B.decrement(2, labels);
 //! ```
 
 pub use {
     backend,
     enum_ordinalize,
-    label::{label_name, BoolLabel, Enum, EnumLabel, LabelName, StringLabel, WithLabel},
+    label::{
+        label_name,
+        BoolLabel,
+        Enum,
+        EnumLabel,
+        LabelName,
+        Optional as OptionalLabel,
+        StringLabel,
+        WithLabel,
+    },
     lazy::Lazy,
 };
 use {
@@ -310,3 +316,7 @@ pub type LabeledFutureMetrics2<A, B> = Labeled2<FutureMetrics, A, B>;
 pub type LabeledFutureMetrics3<A, B, C> = Labeled3<FutureMetrics, A, B, C>;
 #[cfg(feature = "future")]
 pub type LabeledFutureMetrics4<A, B, C, D> = Labeled4<FutureMetrics, A, B, C, D>;
+
+pub type OptionalEnumLabel<const NAME: LabelName, T> = OptionalLabel<EnumLabel<NAME, T>>;
+pub type OptionalBoolLabel<const NAME: LabelName> = OptionalLabel<BoolLabel<NAME>>;
+pub type OptionalStringLabel<const NAME: LabelName, T> = OptionalLabel<StringLabel<NAME, T>>;
