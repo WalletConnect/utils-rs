@@ -79,14 +79,14 @@
 //! ```
 
 pub use {
+    backend,
     enum_ordinalize,
     label::{label_name, BoolLabel, EnumLabel, LabelName, StringLabel, WithLabel},
     lazy::Lazy,
-    metrics as backend,
 };
 use {
+    backend::{Counter, Gauge, Histogram, IntoF64, Label},
     label::{DynamicLabels, Labeled, Labeled2, Labeled3, Labeled4, StaticLabels},
-    metrics::{Counter, Gauge, Histogram, IntoF64},
     sealed::{Attrs, Decrement, Execute, Increment, Metric, Record, Set},
 };
 
@@ -165,11 +165,11 @@ impl Attrs {
     fn labels(&self) -> DynamicLabels {
         let mut labels = self.dynamic.labels.clone();
         let static_ = self.static_.labels.iter();
-        labels.extend(static_.map(|(k, v)| metrics::Label::from_static_parts(k, v)));
+        labels.extend(static_.map(|(k, v)| Label::from_static_parts(k, v)));
         labels
     }
 
-    fn with_label(&self, label: metrics::Label) -> Self {
+    fn with_label(&self, label: Label) -> Self {
         let mut this = self.clone();
         this.dynamic.labels.push(label);
         this
@@ -218,9 +218,9 @@ pub type LabeledCounter4<A, B, C, D> = Labeled4<Counter, A, B, C, D>;
 
 impl Metric for Counter {
     fn register(attrs: &Attrs) -> Self {
-        let counter = metrics::counter!(attrs.name(), attrs.labels().iter());
+        let counter = backend::counter!(attrs.name(), attrs.labels().iter());
         if let Some(desc) = attrs.description() {
-            metrics::describe_counter!(attrs.name(), desc);
+            backend::describe_counter!(attrs.name(), desc);
         }
         counter
     }
@@ -242,9 +242,9 @@ pub type LabeledGauge4<A, B, C, D> = Labeled4<Gauge, A, B, C, D>;
 
 impl Metric for Gauge {
     fn register(attrs: &Attrs) -> Self {
-        let gauge = metrics::gauge!(attrs.name(), attrs.labels().iter());
+        let gauge = backend::gauge!(attrs.name(), attrs.labels().iter());
         if let Some(desc) = attrs.description() {
-            metrics::describe_gauge!(attrs.name(), desc);
+            backend::describe_gauge!(attrs.name(), desc);
         }
         gauge
     }
@@ -284,9 +284,9 @@ pub type LabeledHistogram4<A, B, C, D> = Labeled4<Histogram, A, B, C, D>;
 
 impl Metric for Histogram {
     fn register(attrs: &Attrs) -> Self {
-        let histogram = metrics::histogram!(attrs.name(), attrs.labels().iter());
+        let histogram = backend::histogram!(attrs.name(), attrs.labels().iter());
         if let Some(desc) = attrs.description() {
-            metrics::describe_histogram!(attrs.name(), desc);
+            backend::describe_histogram!(attrs.name(), desc);
         }
         histogram
     }

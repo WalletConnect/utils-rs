@@ -4,13 +4,14 @@ use {
         Metric,
     },
     arc_swap::ArcSwap,
+    backend::Label,
     enum_ordinalize::Ordinalize,
     parking_lot::Mutex,
     smallvec::SmallVec,
     std::{borrow::Borrow, collections::HashMap, sync::Arc},
 };
 
-pub type DynamicLabels = SmallVec<[metrics::Label; 4]>;
+pub type DynamicLabels = SmallVec<[Label; 4]>;
 pub type StaticLabels = &'static [(&'static str, &'static str)];
 
 pub type Labeled<T, A> = WithLabel<A, T>;
@@ -92,7 +93,7 @@ where
 {
     fn register(attrs: &Attrs) -> Self {
         let metrics = L::VARIANTS.iter().map(|l| {
-            let label = metrics::Label::from_static_parts(L::NAME, l.as_str());
+            let label = Label::from_static_parts(L::NAME, l.as_str());
             (*l, M::register(&attrs.with_label(label)))
         });
 
@@ -170,8 +171,8 @@ where
     fn register(attrs: &Attrs) -> Self {
         let name = const { resolve_label_name::<NAME>() };
 
-        let f = metrics::Label::from_static_parts(name, "false");
-        let t = metrics::Label::from_static_parts(name, "true");
+        let f = Label::from_static_parts(name, "false");
+        let t = Label::from_static_parts(name, "true");
 
         Self {
             collection: (
@@ -302,7 +303,7 @@ where
             let mut inner_clone: HashMap<_, _> = (**inner).clone();
 
             let name = const { resolve_label_name::<NAME>() };
-            let label_ = metrics::Label::new(name, label.to_owned().to_string());
+            let label_ = Label::new(name, label.to_owned().to_string());
 
             // Insert the new `Metric`.
             //

@@ -25,7 +25,7 @@ use {
         sealed::{Attrs, Metric},
         Lazy,
     },
-    metrics::{Counter, Gauge, Histogram},
+    backend::{counter, gauge, histogram, Counter, Gauge, Histogram, Label},
     std::{
         future::Future,
         pin::Pin,
@@ -67,19 +67,19 @@ pub struct Metrics {
 impl Metric for Metrics {
     fn register(attrs: &Attrs) -> Self {
         let mut labels = attrs.labels();
-        let name = metrics::Label::from_static_parts("future_name", attrs.name());
+        let name = Label::from_static_parts("future_name", attrs.name());
         labels.push(name);
 
         Self {
-            duration: metrics::histogram!(name::FUTURE_DURATION, labels.iter()),
-            cancelled_duration: metrics::histogram!(name::FUTURE_CANCELLED_DURATION, labels.iter()),
-            created: metrics::counter!(name::FUTURES_CREATED, labels.iter()),
-            started: metrics::counter!(name::FUTURES_STARTED, labels.iter()),
-            finished: metrics::counter!(name::FUTURES_FINISHED, labels.iter()),
-            cancelled: metrics::counter!(name::FUTURES_CANCELLED, labels.iter()),
-            poll_duration: metrics::histogram!(name::FUTURE_POLL_DURATION, labels.iter()),
-            poll_duration_max: metrics::gauge!(name::FUTURE_POLL_DURATION_MAX, labels.iter()),
-            polls: metrics::counter!(name::FUTURE_POLLS, labels.iter()),
+            duration: histogram!(name::FUTURE_DURATION, labels.iter()),
+            cancelled_duration: histogram!(name::FUTURE_CANCELLED_DURATION, labels.iter()),
+            created: counter!(name::FUTURES_CREATED, labels.iter()),
+            started: counter!(name::FUTURES_STARTED, labels.iter()),
+            finished: counter!(name::FUTURES_FINISHED, labels.iter()),
+            cancelled: counter!(name::FUTURES_CANCELLED, labels.iter()),
+            poll_duration: histogram!(name::FUTURE_POLL_DURATION, labels.iter()),
+            poll_duration_max: gauge!(name::FUTURE_POLL_DURATION_MAX, labels.iter()),
+            polls: counter!(name::FUTURE_POLLS, labels.iter()),
         }
     }
 }

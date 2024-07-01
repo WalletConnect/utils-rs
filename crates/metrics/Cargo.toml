@@ -8,7 +8,7 @@ default = ["future"]
 future = ["dep:pin-project"]
 
 [dependencies]
-metrics = "0.23"
+backend = { package = "metrics", version = "0.23" }
 smallvec = "1"
 parking_lot = "0.12"
 enum-ordinalize = "4.3"
