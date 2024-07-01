@@ -67,8 +67,8 @@ pub struct EnumLabel<const NAME: LabelName, T>(T);
 
 impl<const NAME: LabelName, T> EnumLabel<NAME, T> {
     /// Creates a new [`EnumLabel`].
-    pub fn new(e: T) -> Self {
-        Self(e)
+    pub fn new(e: impl Into<T>) -> Self {
+        Self(e.into())
     }
 
     /// Convert this [`EnumLabel`] into the inner [`Enum`].
