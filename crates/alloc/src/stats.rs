@@ -87,7 +87,7 @@ pub fn collect_jemalloc_stats() -> Result<JemallocStats, Error> {
 
 #[cfg(feature = "metrics")]
 pub fn update_jemalloc_metrics() -> Result<(), Error> {
-    use metrics::gauge;
+    use metrics::backend::gauge;
 
     let stats = collect_jemalloc_stats()?;
     let total = &stats.total;

@@ -5,11 +5,8 @@ edition = "2021"
 
 [features]
 default = []
-full = ["metrics"]
-metrics = ["dep:metrics"]
 
 [dependencies]
-metrics = { path = "../metrics", optional = true }
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "macros"] }
 tokio-util = { version = "0.7", default-features = false }
 pin-project = "1"

@@ -30,8 +30,7 @@ collections = ["dep:collections"]
 future = ["dep:future"]
 geoblock = ["geoip/middleware"]
 geoip = ["dep:geoip"]
-metrics = ["dep:metrics", "future/metrics", "alloc/metrics"]
-future_metrics = ["dep:future_metrics"]
+metrics = ["dep:metrics", "alloc/metrics"]
 alloc_metrics = ["alloc/metrics"]
 profiler = ["alloc/profiler"]
 rate_limit = ["dep:rate_limit"]
@@ -45,8 +44,7 @@ analytics = { path = "./crates/analytics", optional = true }
 collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
 geoip = { path = "./crates/geoip", optional = true }
-metrics = { path = "./crates/metrics", optional = true }
-future_metrics = { path = "./crates/future_metrics", optional = true }
+metrics = { package = "wc_metrics", path = "./crates/metrics", optional = true }
 rate_limit = { path = "./crates/rate_limit", optional = true }
 
 [dev-dependencies]
@@ -56,6 +54,7 @@ tokio = { version = "1", features = ["full"] }
 hyper = { version = "1.2.0", features = ["full"] }
 tower = { version = "0.4", features = ["util", "filter"] }
 axum = "0.7.5"
+metrics-exporter-prometheus = { version = "0.15", default-features = false }
 
 [[example]]
 name = "alloc_profiler"
@@ -64,10 +63,6 @@ required-features = ["alloc", "profiler"]
 [[example]]
 name = "alloc_stats"
 required-features = ["alloc", "metrics"]
-
-[[example]]
-name = "metrics"
-required-features = ["metrics", "future"]
 
 [[example]]
 name = "geoblock"

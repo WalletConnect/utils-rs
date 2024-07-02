@@ -202,34 +202,6 @@ pub trait FutureExt {
         self,
         token: CancellationToken,
     ) -> CancellationFuture<Self::Future, Ready<()>>;
-
-    /// Consumes the future, returning a new future that records the metrics of
-    /// the inner future's async task execution.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use {future::FutureExt, metrics::OtelTaskMetricsRecorder, std::time::Duration};
-    ///
-    /// # async fn example() {
-    /// let recorder = OtelTaskMetricsRecorder::new("custom_task").with_name("specific_task_name");
-    ///
-    /// async {
-    ///     tokio::time::sleep(Duration::from_millis(500)).await;
-    /// }
-    /// .with_metrics(recorder)
-    /// .await
-    /// # }
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// #     example().await;
-    /// # }
-    /// ```
-    #[cfg(feature = "metrics")]
-    fn with_metrics<R>(self, recorder: R) -> metrics::TaskMetricsFuture<Self::Future, R>
-    where
-        R: metrics::TaskMetricsRecorder;
 }
 
 pub trait StaticFutureExt {
@@ -248,7 +220,7 @@ pub trait StaticFutureExt {
     ///     tokio::time::sleep(Duration::from_millis(500)).await;
     ///     42
     /// }
-    /// .spawn("");
+    /// .spawn();
     ///
     /// assert!(matches!(join_handle.await, Ok(42)));
     /// # }
@@ -258,15 +230,7 @@ pub trait StaticFutureExt {
     /// #     example().await;
     /// # }
     /// ```
-    #[cfg(feature = "metrics")]
-    fn spawn(self, name: &'static str) -> JoinHandle<<Self::Future as Future>::Output>;
-
-    /// Same as [`StaticFutureExt::spawn`], but it won't monitor long running
-    /// futures.
-    ///
-    /// Use this only if your future is expected to be long running (ex.
-    /// singleton).
-    fn spawn_and_forget(self) -> JoinHandle<<Self::Future as Future>::Output>;
+    fn spawn(self) -> JoinHandle<<Self::Future as Future>::Output>;
 }
 
 impl<T> FutureExt for T
@@ -292,14 +256,6 @@ where
             on_cancel: ready(()),
         }
     }
-
-    #[cfg(feature = "metrics")]
-    fn with_metrics<R>(self, recorder: R) -> metrics::TaskMetricsFuture<Self::Future, R>
-    where
-        R: metrics::TaskMetricsRecorder,
-    {
-        metrics::TaskMetricsFuture::new(self, recorder)
-    }
 }
 
 impl<T> StaticFutureExt for T
@@ -309,19 +265,12 @@ where
 {
     type Future = T;
 
-    #[cfg(feature = "metrics")]
-    fn spawn(self, name: &'static str) -> JoinHandle<<Self::Future as Future>::Output> {
-        static METRICS: metrics::TaskMetrics = metrics::TaskMetrics::new("spawned_task");
-
-        tokio::spawn(self.with_metrics(METRICS.with_name(name)))
-    }
-
-    fn spawn_and_forget(self) -> JoinHandle<<Self::Future as Future>::Output> {
+    fn spawn(self) -> JoinHandle<<Self::Future as Future>::Output> {
         tokio::spawn(self)
     }
 }
 
-#[cfg(all(test, feature = "metrics"))]
+#[cfg(test)]
 mod test {
     use {
         super::*,
@@ -356,7 +305,7 @@ mod test {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 b.fetch_add(1, Ordering::SeqCst);
             })
-            .spawn("")
+            .spawn()
         };
 
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -385,7 +334,7 @@ mod test {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 b.fetch_add(1, Ordering::Relaxed);
             })
-            .spawn("")
+            .spawn()
         };
 
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -416,7 +365,7 @@ mod test {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 b.fetch_add(1, Ordering::Relaxed);
             })
-            .spawn("")
+            .spawn()
         };
 
         assert_eq!(handle.await.unwrap(), Err(Error::Timeout));
@@ -441,7 +390,7 @@ mod test {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 b.fetch_add(1, Ordering::Relaxed);
             })
-            .spawn("")
+            .spawn()
         };
 
         assert_eq!(handle.await.unwrap(), Ok(42));
