@@ -317,4 +317,4 @@ pub type LabeledFutureMetrics4<A, B, C, D> = Labeled4<FutureMetrics, A, B, C, D>
 
 pub type OptionalEnumLabel<const NAME: LabelName, T> = Optional<EnumLabel<NAME, T>>;
 pub type OptionalBoolLabel<const NAME: LabelName> = Optional<BoolLabel<NAME>>;
-pub type OptionalStringLabel<const NAME: LabelName, T> = Optional<StringLabel<NAME, T>>;
+pub type OptionalStringLabel<const NAME: LabelName, T = String> = Optional<StringLabel<NAME, T>>;

@@ -8,7 +8,7 @@ use {
     metrics::Label,
     parking_lot::Mutex,
     smallvec::SmallVec,
-    std::{borrow::Borrow, collections::HashMap, marker::PhantomData, sync::Arc},
+    std::{borrow::Borrow, collections::HashMap, sync::Arc},
 };
 
 pub type DynamicLabels = SmallVec<[Label; 4]>;
@@ -343,9 +343,33 @@ where
     }
 }
 
-/// Makes any other label optional by accepting `Option` instead of the actual
+/// Makes any other label optional by accepting [`Option`] instead of the actual
 /// label value during the label resolution.
-pub struct Optional<T>(PhantomData<T>);
+pub struct Optional<T>(pub Option<T>);
+
+impl<const NAME: LabelName, T> Optional<EnumLabel<NAME, T>> {
+    /// Creates a new [`Optional`] [`EnumLabel`].
+    pub fn new(v: Option<impl Into<T>>) -> Self {
+        Self(v.map(EnumLabel::new))
+    }
+}
+
+impl<const NAME: LabelName> Optional<BoolLabel<NAME>> {
+    /// Creates a new [`Optional`] [`BoolLabel`].
+    pub fn new(v: Option<bool>) -> Self {
+        Self(v.map(BoolLabel::new))
+    }
+}
+
+impl<const NAME: LabelName, T> Optional<StringLabel<NAME, T>> {
+    /// Creates a new [`Optional`] [`StringLabel`].
+    pub fn new<U: ?Sized>(v: Option<&U>) -> Optional<StringLabel<NAME, &U>>
+    where
+        T: Borrow<U>,
+    {
+        Optional(v.map(StringLabel::<NAME, T>::new))
+    }
+}
 
 impl<T, M> DynamicLabel<M> for Optional<T>
 where
@@ -383,6 +407,19 @@ where
             Some(l) => self.collection.1.resolve_labels((l,)),
             None => &self.collection.0,
         }
+    }
+}
+
+impl<T, U, M> ResolveLabels<(Optional<U>,)> for WithLabel<Optional<T>, M>
+where
+    T: DynamicLabel<M>,
+    M: Metric,
+    WithLabel<T, M>: ResolveLabels<(U,), Target = M>,
+{
+    type Target = M;
+
+    fn resolve_labels(&self, (label,): (Optional<U>,)) -> &M {
+        self.resolve_labels((label.0,))
     }
 }
 

@@ -13,7 +13,16 @@
 ///
 /// Usage:
 /// ```
-/// use wc_metrics::{enum_ordinalize::Ordinalize, BoolLabel, EnumLabel, StringLabel, counter};
+/// use wc_metrics::{
+///     counter,
+///     enum_ordinalize::Ordinalize,
+///     BoolLabel,
+///     EnumLabel,
+///     OptionalBoolLabel,
+///     OptionalEnumLabel,
+///     OptionalStringLabel,
+///     StringLabel,
+/// };
 ///
 /// #[derive(Clone, Copy, Debug, Ordinalize)]
 /// enum MyEnum {
@@ -99,8 +108,12 @@
 ///     StringLabel<"b"> => s,
 ///     StringLabel<"c", u8> => &u,
 ///     BoolLabel<"d"> => b,
-///     "e" => "1",
-///     "f" => "2"
+///     OptionalEnumLabel<"e", MyEnum> => Some(e),
+///     OptionalStringLabel<"f"> => Some(s),
+///     OptionalStringLabel<"g", u8> => Some(&u),
+///     OptionalBoolLabel<"h"> => Some(b),
+///     "i" => "1",
+///     "j" => "2"
 /// )
 /// .increment(1);
 /// ```
@@ -126,7 +139,16 @@ macro_rules! counter {
 ///
 /// Usage:
 /// ```
-/// use wc_metrics::{enum_ordinalize::Ordinalize, BoolLabel, EnumLabel, StringLabel, gauge};
+/// use wc_metrics::{
+///     gauge,
+///     enum_ordinalize::Ordinalize,
+///     BoolLabel,
+///     EnumLabel,
+///     OptionalBoolLabel,
+///     OptionalEnumLabel,
+///     OptionalStringLabel,
+///     StringLabel,
+/// };
 ///
 /// #[derive(Clone, Copy, Debug, Ordinalize)]
 /// enum MyEnum {
@@ -212,8 +234,12 @@ macro_rules! counter {
 ///     StringLabel<"b"> => s,
 ///     StringLabel<"c", u8> => &u,
 ///     BoolLabel<"d"> => b,
-///     "e" => "1",
-///     "f" => "2"
+///     OptionalEnumLabel<"e", MyEnum> => Some(e),
+///     OptionalStringLabel<"f"> => Some(s),
+///     OptionalStringLabel<"g", u8> => Some(&u),
+///     OptionalBoolLabel<"h"> => Some(b),
+///     "i" => "1",
+///     "j" => "2"
 /// )
 /// .set(1);
 /// ```
@@ -239,7 +265,16 @@ macro_rules! gauge {
 ///
 /// Usage:
 /// ```
-/// use wc_metrics::{enum_ordinalize::Ordinalize, BoolLabel, EnumLabel, StringLabel, histogram};
+/// use wc_metrics::{
+///     histogram,
+///     enum_ordinalize::Ordinalize,
+///     BoolLabel,
+///     EnumLabel,
+///     OptionalBoolLabel,
+///     OptionalEnumLabel,
+///     OptionalStringLabel,
+///     StringLabel,
+/// };
 ///
 /// #[derive(Clone, Copy, Debug, Ordinalize)]
 /// enum MyEnum {
@@ -325,8 +360,12 @@ macro_rules! gauge {
 ///     StringLabel<"b"> => s,
 ///     StringLabel<"c", u8> => &u,
 ///     BoolLabel<"d"> => b,
-///     "e" => "1",
-///     "f" => "2"
+///     OptionalEnumLabel<"e", MyEnum> => Some(e),
+///     OptionalStringLabel<"f"> => Some(s),
+///     OptionalStringLabel<"g", u8> => Some(&u),
+///     OptionalBoolLabel<"h"> => Some(b),
+///     "i" => "1",
+///     "j" => "2"
 /// )
 /// .record(1);
 /// ```
@@ -343,7 +382,18 @@ macro_rules! histogram {
 /// Usage:
 /// ```
 /// use std::future::Future;
-/// use wc_metrics::{enum_ordinalize::Ordinalize, BoolLabel, EnumLabel, StringLabel, future_metrics, FutureMetrics, FutureExt};
+/// use wc_metrics::{
+///     future_metrics,
+///     enum_ordinalize::Ordinalize,
+///     BoolLabel,
+///     EnumLabel,
+///     OptionalBoolLabel,
+///     OptionalEnumLabel,
+///     OptionalStringLabel,
+///     StringLabel,
+///     FutureExt,
+///     FutureMetrics,
+/// };
 ///
 /// #[derive(Clone, Copy, Debug, Ordinalize)]
 /// enum MyEnum {
@@ -399,8 +449,12 @@ macro_rules! histogram {
 ///     StringLabel<"b"> => s,
 ///     StringLabel<"c", u8> => &u,
 ///     BoolLabel<"d"> => b,
-///     "e" => "1",
-///     "f" => "2"
+///     OptionalEnumLabel<"e", MyEnum> => Some(e),
+///     OptionalStringLabel<"f"> => Some(s),
+///     OptionalStringLabel<"g", u8> => Some(&u),
+///     OptionalBoolLabel<"h"> => Some(b),
+///     "i" => "1",
+///     "j" => "2"
 /// )));
 /// ```
 #[cfg(feature = "future")]
