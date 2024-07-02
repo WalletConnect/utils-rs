@@ -36,13 +36,13 @@ name = "alloc"
 version = "0.1.0"
 dependencies = [
  "dhat",
- "metrics 0.1.0",
  "serde",
  "serde_json",
  "thiserror",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tokio",
+ "wc_metrics",
 ]
 
 [[package]]
@@ -1634,18 +1634,6 @@ checksum = "6c8640c5d730cb13ebd907d8d04b52f55ac9a2eec55b440c8892f40d56c76c1d"
 
 [[package]]
 name = "metrics"
-version = "0.1.0"
-dependencies = [
- "arc-swap",
- "enum-ordinalize",
- "metrics 0.23.0",
- "parking_lot",
- "pin-project",
- "smallvec",
-]
-
-[[package]]
-name = "metrics"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "884adb57038347dfbaf2d5065887b6cf4312330dc8e94bc30a1a839bd79d3261"
@@ -1662,7 +1650,7 @@ checksum = "bf0af7a0d7ced10c0151f870e5e3f3f8bc9ffc5992d32873566ca1f9169ae776"
 dependencies = [
  "base64 0.22.1",
  "indexmap",
- "metrics 0.23.0",
+ "metrics",
  "metrics-util",
  "quanta",
  "thiserror",
@@ -1677,7 +1665,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown",
- "metrics 0.23.0",
+ "metrics",
  "num_cpus",
  "quanta",
  "sketches-ddsketch",
@@ -2968,12 +2956,24 @@ dependencies = [
  "future",
  "geoip",
  "hyper 1.3.1",
- "metrics 0.1.0",
  "metrics-exporter-prometheus",
  "rate_limit",
  "structopt",
  "tokio",
  "tower",
+ "wc_metrics",
+]
+
+[[package]]
+name = "wc_metrics"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "enum-ordinalize",
+ "metrics",
+ "parking_lot",
+ "pin-project",
+ "smallvec",
 ]
 
 [[package]]

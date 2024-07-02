@@ -44,7 +44,7 @@ analytics = { path = "./crates/analytics", optional = true }
 collections = { path = "./crates/collections", optional = true }
 future = { path = "./crates/future", optional = true }
 geoip = { path = "./crates/geoip", optional = true }
-metrics = { path = "./crates/metrics", optional = true }
+metrics = { package = "wc_metrics", path = "./crates/metrics", optional = true }
 rate_limit = { path = "./crates/rate_limit", optional = true }
 
 [dev-dependencies]

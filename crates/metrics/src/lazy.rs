@@ -6,7 +6,7 @@ use {
         Metric,
         StaticAttrs,
     },
-    backend::{Counter, Gauge, Histogram, IntoF64},
+    metrics::{Counter, Gauge, Histogram, IntoF64},
     std::sync::OnceLock,
 };
 

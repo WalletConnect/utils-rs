@@ -1,5 +1,5 @@
 [package]
-name = "metrics"
+name = "wc_metrics"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,7 @@ default = ["future"]
 future = ["dep:pin-project"]
 
 [dependencies]
-backend = { package = "metrics", version = "0.23" }
+metrics = "0.23"
 smallvec = "1"
 parking_lot = "0.12"
 enum-ordinalize = "4.3"

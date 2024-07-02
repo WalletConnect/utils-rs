@@ -4,8 +4,8 @@ use {
         Metric,
     },
     arc_swap::ArcSwap,
-    backend::Label,
     enum_ordinalize::Ordinalize,
+    metrics::Label,
     parking_lot::Mutex,
     smallvec::SmallVec,
     std::{borrow::Borrow, collections::HashMap, marker::PhantomData, sync::Arc},
@@ -157,7 +157,7 @@ where
 /// name should be specified using the following hack:
 ///
 /// ```
-/// use metrics::{label_name, BoolLabel};
+/// use wc_metrics::{label_name, BoolLabel};
 ///
 /// type MyLabel = BoolLabel<{ label_name("my_label") }>;
 /// ```
@@ -229,7 +229,7 @@ where
 /// name should be specified using the following hack:
 ///
 /// ```
-/// use metrics::{label_name, StringLabel};
+/// use wc_metrics::{label_name, StringLabel};
 ///
 /// type MyLabel = StringLabel<{ label_name("my_label") }>;
 /// ```

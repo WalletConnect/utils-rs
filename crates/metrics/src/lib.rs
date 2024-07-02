@@ -6,21 +6,27 @@
 //! hurting the code ergonomics.
 //!
 //! A trivial atomic counter increment MUST NOT allocate stuff on the heap
-//! (looking at you [`metrics::counter`]) and it SHOULD NOT acquire locks or
-//! do [`HashMap`](std::collections::HashMap) lookups unless absolutely
-//! necessary.
+//! (looking at you [`metrics::counter`] and it SHOULD NOT acquire locks or do
+//! [`HashMap`](std::collections::HashMap) lookups unless absolutely necessary.
 //!
+//! If your metric is only being used once, or you can cache it somewhere
+//! consider using [`counter`], [`gauge`] or [`histogram`] convinience macros.
+//! The macros are completely optional and the machinery can be used
+//! as is without them.
 //!
 //! # Usage
 //!
 //! ```
-//! use metrics::{
-//!     backend::{Counter, Gauge, Histogram},
+//! use wc_metrics::{
+//!     self as metrics,
 //!     enum_ordinalize::Ordinalize,
 //!     label_name,
 //!     BoolLabel,
+//!     Counter,
 //!     Enum,
 //!     EnumLabel,
+//!     Gauge,
+//!     Histogram,
 //!     LabeledCounter2,
 //!     LabeledGauge3,
 //!     LabeledHistogram,
@@ -77,19 +83,20 @@
 //! ```
 
 pub use {
-    backend,
     enum_ordinalize,
     label::{label_name, BoolLabel, Enum, EnumLabel, LabelName, Optional, StringLabel, WithLabel},
     lazy::Lazy,
+    metrics::{self as backend, Counter, Gauge, Histogram},
 };
 use {
-    backend::{Counter, Gauge, Histogram, IntoF64, Label},
     label::{DynamicLabels, Labeled, Labeled2, Labeled3, Labeled4, StaticLabels},
+    metrics::{IntoF64, Label},
     sealed::{Attrs, Decrement, Execute, Increment, Metric, Record, Set},
 };
 
 mod label;
 mod lazy;
+mod macros;
 
 #[cfg(feature = "future")]
 pub mod future;

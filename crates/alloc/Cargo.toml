@@ -10,7 +10,7 @@ profiler = ["dep:dhat", "dep:tokio"]
 metrics = ["dep:metrics"]
 
 [dependencies]
-metrics = { path = "../metrics", optional = true }
+metrics = { package = "wc_metrics", path = "../metrics", optional = true }
 tikv-jemallocator = { version = "0.5", features = ["stats"] }
 tikv-jemalloc-ctl = { version = "0.5", features = ["use_std"] }
 serde = { version = "1", features = ["derive"] }

@@ -3,7 +3,15 @@
 //! Usage:
 //!
 //! ```
-//! use metrics::{label_name, BoolLabel, FutureExt, FutureMetrics, LabeledFutureMetrics2, Lazy};
+//! use wc_metrics::{
+//!     self as metrics,
+//!     label_name,
+//!     BoolLabel,
+//!     FutureExt,
+//!     FutureMetrics,
+//!     LabeledFutureMetrics2,
+//!     Lazy,
+//! };
 //!
 //! type MyBoolLabelA = BoolLabel<{ label_name("my_bool_label_a") }>;
 //! type MyBoolLabelB = BoolLabel<{ label_name("my_bool_label_b") }>;
@@ -25,7 +33,7 @@ use {
         sealed::{Attrs, Metric},
         Lazy,
     },
-    backend::{counter, gauge, histogram, Counter, Gauge, Histogram, Label},
+    metrics::{counter, gauge, histogram, Counter, Gauge, Histogram, Label},
     std::{
         future::Future,
         pin::Pin,
