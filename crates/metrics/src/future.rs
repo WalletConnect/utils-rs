@@ -194,14 +194,8 @@ impl Drop for State {
             }
         }
 
-        self.metrics
-            .poll_duration
-            .record(duration_as_millis_f64(self.poll_duration_sum));
-
-        self.metrics
-            .poll_duration_max
-            .set(duration_as_millis_f64(self.poll_duration_max));
-
+        self.metrics.poll_duration.record(self.poll_duration_sum);
+        self.metrics.poll_duration_max.set(self.poll_duration_max);
         self.metrics.polls.increment(self.polls_count as u64);
     }
 }
@@ -210,9 +204,4 @@ impl<F: Future> FusedFuture for Metered<F> {
     fn is_terminated(&self) -> bool {
         self.state.is_finished
     }
-}
-
-#[inline]
-fn duration_as_millis_f64(val: Duration) -> f64 {
-    val.as_secs_f64() * 1000.0
 }
