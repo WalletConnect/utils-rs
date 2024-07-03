@@ -33,6 +33,7 @@ use {
         sealed::{Attrs, Metric},
         Lazy,
     },
+    futures::future::FusedFuture,
     metrics::{counter, gauge, histogram, Counter, Gauge, Histogram, Label},
     std::{
         future::Future,
@@ -169,7 +170,7 @@ impl<F: Future> Future for Metered<F> {
         state.poll_duration_max = state.poll_duration_max.max(poll_duration);
         state.polls_count += 1;
 
-        if result.is_ready() && !state.is_finished {
+        if result.is_ready() {
             state.is_finished = true;
 
             state.metrics.finished.increment(1);
@@ -202,6 +203,12 @@ impl Drop for State {
             .set(duration_as_millis_f64(self.poll_duration_max));
 
         self.metrics.polls.increment(self.polls_count as u64);
+    }
+}
+
+impl<F: Future> FusedFuture for Metered<F> {
+    fn is_terminated(&self) -> bool {
+        self.state.is_finished
     }
 }
 

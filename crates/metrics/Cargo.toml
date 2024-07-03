@@ -14,3 +14,4 @@ parking_lot = "0.12"
 enum-ordinalize = "4.3"
 arc-swap = "1.7"
 pin-project = { version = "1", optional = true }
+futures = "0.3"
