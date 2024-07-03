@@ -107,9 +107,9 @@ where
     fn register(attrs: &Attrs) -> Self {
         let name = const { resolve_label_name::<NAME>() };
 
-        let metrics = T::VARIANTS.iter().map(|l| {
-            let label = Label::from_static_parts(name, l.as_str());
-            (*l, M::register(&attrs.with_label(label)))
+        let metrics = T::VARIANTS.iter().map(|variant| {
+            let label = Label::from_static_parts(name, variant.as_str());
+            (*variant, M::register(&attrs.with_label(label)))
         });
 
         Self {
@@ -301,8 +301,8 @@ where
         let label = label.0;
         let col = &self.collection;
 
-        if let Some(m) = col.inner.load().get(label) {
-            return m;
+        if let Some(metric) = col.inner.load().get(label) {
+            return metric;
         };
 
         let _guard = col.mutex.lock();
