@@ -98,6 +98,11 @@ mod label;
 mod lazy;
 mod macros;
 
+#[cfg(test)]
+mod examples;
+#[cfg(test)]
+mod test;
+
 #[cfg(feature = "future")]
 pub mod future;
 #[cfg(feature = "future")]
