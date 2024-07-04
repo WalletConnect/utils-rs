@@ -43,7 +43,7 @@ fn suite() {
     #[cfg(feature = "future")]
     metrics.assert_future_metrics(1.0);
 
-    const ITERATIONS: usize = 1_000;
+    const ITERATIONS: usize = 1_000_000;
 
     // Histograms are not included here, because their current implementation is
     // leaky in `metrics` itself. It needs to be consumed consistently by the
