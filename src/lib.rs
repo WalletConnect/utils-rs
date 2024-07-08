@@ -7,12 +7,8 @@ pub use analytics;
 pub use collections;
 #[cfg(feature = "future")]
 pub use future;
-#[cfg(feature = "future_metrics")]
-pub use future_metrics;
 #[cfg(feature = "geoip")]
 pub use geoip;
-#[cfg(feature = "http")]
-pub use http;
 #[cfg(feature = "metrics")]
 pub use metrics;
 #[cfg(feature = "rate_limit")]

@@ -1,151 +1,325 @@
+//! Alternative API facade to the [`metrics`] backend.
+//!
+//! Priorities: performance, ergonomics (in that order).
+//!
+//! Metrics reporting should be as fast as possible, without substantially
+//! hurting the code ergonomics.
+//!
+//! A trivial atomic counter increment MUST NOT allocate stuff on the heap
+//! (looking at you [`metrics::counter`] and it SHOULD NOT acquire locks or do
+//! [`HashMap`](std::collections::HashMap) lookups unless absolutely necessary.
+//!
+//! If your metric is only being used once, or you can cache it somewhere
+//! consider using [`counter`], [`gauge`] or [`histogram`] convinience macros.
+//! The macros are completely optional and the machinery can be used
+//! as is without them.
+//!
+//! # Usage
+//!
+//! ```
+//! use wc_metrics::{
+//!     self as metrics,
+//!     enum_ordinalize::Ordinalize,
+//!     label_name,
+//!     BoolLabel,
+//!     Counter,
+//!     Enum,
+//!     EnumLabel,
+//!     Gauge,
+//!     Histogram,
+//!     LabeledCounter2,
+//!     LabeledGauge3,
+//!     LabeledHistogram,
+//!     Lazy,
+//!     Optional,
+//!     StringLabel,
+//! };
+//!
+//! #[derive(Clone, Copy, Ordinalize)]
+//! enum MyEnum {
+//!     A,
+//!     B,
+//! }
+//!
+//! type MyEnumLabel = EnumLabel<{ label_name("my_enum_label") }, MyEnum>;
+//!
+//! impl Enum for MyEnum {
+//!     fn as_str(&self) -> &'static str {
+//!         match self {
+//!             Self::A => "a",
+//!             Self::B => "b",
+//!         }
+//!     }
+//! }
+//!
+//! type MyBoolLabel = BoolLabel<{ label_name("my_bool_label") }>;
+//! type MyStringLabel = StringLabel<{ label_name("my_string_label") }>;
+//! type MyU8StringLabel = StringLabel<{ label_name("my_u8_label") }, u8>;
+//!
+//! static COUNTER_A: Lazy<Counter> = metrics::new("counter_a");
+//!
+//! static GAUGE_A: Lazy<Gauge> = metrics::builder("gauge_a")
+//!     .with_description("My gauge")
+//!     .with_static_labels(&[("labelA", "valueA"), ("labelA", "valueA")])
+//!     .build();
+//!
+//! static HISTOGRAM_A: Lazy<LabeledHistogram<MyEnumLabel>> = metrics::new("histogram_a");
+//!
+//! static COUNTER_B: Lazy<LabeledCounter2<MyStringLabel, MyBoolLabel>> =
+//!     metrics::builder("counter_b")
+//!         .with_description("My labeled counter")
+//!         .build();
+//!
+//! static GAUGE_B: Lazy<LabeledGauge3<MyU8StringLabel, MyEnumLabel, Optional<MyBoolLabel>>> =
+//!     metrics::new("gauge_b");
+//!
+//! COUNTER_A.increment(1);
+//! GAUGE_A.set(42);
+//! HISTOGRAM_A.record(1000, (MyEnumLabel::new(MyEnum::A),));
+//! COUNTER_B.increment(2u64, (MyStringLabel::new("test"), MyBoolLabel::new(false)));
+//!
+//! let labels = (MyU8StringLabel::new(&42), MyEnumLabel::new(MyEnum::B), None);
+//! GAUGE_B.decrement(2, labels);
+//! ```
+
 pub use {
-    future::*,
-    once_cell::sync::Lazy,
-    opentelemetry as otel,
-    opentelemetry_sdk as otel_sdk,
-    task::*,
+    enum_ordinalize,
+    label::{label_name, BoolLabel, Enum, EnumLabel, LabelName, Optional, StringLabel, WithLabel},
+    lazy::Lazy,
+    metrics::{self as backend, Counter, Gauge, Histogram},
 };
 use {
-    opentelemetry_sdk::metrics::{MeterProviderBuilder, SdkMeterProvider},
-    otel::{
-        global,
-        metrics::{Meter, MeterProvider},
-    },
-    prometheus::{Error as PrometheusError, Registry, TextEncoder},
-    std::{
-        sync::{Arc, Mutex},
-        time::Duration,
-    },
+    label::{DynamicLabels, Labeled, Labeled2, Labeled3, Labeled4, StaticLabels},
+    metrics::{IntoF64, Label},
+    sealed::{Attrs, Decrement, Execute, Increment, Metric, Record, Set},
 };
 
-pub mod future;
-pub mod macros;
-pub mod task;
-
-const DEFAULT_SERVICE_NAME: &str = "unknown_service";
-
-static SERVICE_NAME: Mutex<Option<&str>> = Mutex::new(None);
-
-pub type MeterProviderBuilderFn = fn(MeterProviderBuilder) -> MeterProviderBuilder;
-static METER_PROVIDER_BUILDER_FN: Mutex<Option<MeterProviderBuilderFn>> = Mutex::new(None);
-
-static METRICS_CORE: Lazy<Arc<ServiceMetrics>> = Lazy::new(|| {
-    let service_name = SERVICE_NAME.lock().unwrap().unwrap_or(DEFAULT_SERVICE_NAME);
-    let meter_provider_builder = *METER_PROVIDER_BUILDER_FN.lock().unwrap();
-
-    let registry = Registry::new();
-    let prometheus_exporter = opentelemetry_prometheus::exporter()
-        .with_registry(registry.clone())
-        .build()
-        .unwrap();
-    let mut builder = SdkMeterProvider::builder().with_reader(prometheus_exporter);
-    if let Some(buidler_fn) = meter_provider_builder {
-        builder = buidler_fn(builder);
-    };
-    let provider = builder.build();
-    let meter = provider.meter(service_name);
-
-    global::set_meter_provider(provider);
-
-    Arc::new(ServiceMetrics { registry, meter })
-});
-
-/// Global application metrics access.
-///
-/// The main functionality is to provide global access to opentelemetry's
-/// [`Meter`].
-pub struct ServiceMetrics {
-    registry: Registry,
-    meter: Meter,
-}
-
-impl ServiceMetrics {
-    /// Initializes service metrics with the default name.
-    ///
-    /// # Panics
-    ///
-    /// Panics if either prometheus exporter or opentelemetry meter fails to
-    /// initialize.
-    pub fn init() {
-        Lazy::force(&METRICS_CORE);
-    }
-
-    /// Initializes service metrics with the specified name.
-    ///
-    /// # Panics
-    ///
-    /// Panics if either prometheus exporter or opentelemetry meter fails to
-    /// initialize.
-    pub fn init_with_name(name: &'static str) {
-        *SERVICE_NAME.lock().unwrap() = Some(name);
-        Lazy::force(&METRICS_CORE);
-    }
-
-    /// Initializes service metrics with the specified name and meter provider
-    /// builder.
-    ///
-    /// # Panics
-    ///
-    /// Panics if either prometheus exporter or opentelemetry meter fails to
-    /// initialize.
-    pub fn init_with_meter_builder(
-        name: &'static str,
-        meter_provider_builder: MeterProviderBuilderFn,
-    ) {
-        *SERVICE_NAME.lock().unwrap() = Some(name);
-        *METER_PROVIDER_BUILDER_FN.lock().unwrap() = Some(meter_provider_builder);
-        Lazy::force(&METRICS_CORE);
-    }
-
-    /// Generates export data in Prometheus format, serialized into string.
-    pub fn export() -> Result<String, PrometheusError> {
-        let data = Self::get().registry.gather();
-        TextEncoder::new().encode_to_string(&data)
-    }
-
-    /// Returns a static reference to [`Meter`] which can be used to set up
-    /// global static counters. See [`crate::counter`] macro for an example.
-    #[inline]
-    pub fn meter() -> &'static Meter {
-        &Self::get().meter
-    }
-
-    /// Global access to the application metrics singleton.
-    #[inline]
-    fn get() -> &'static Self {
-        METRICS_CORE.as_ref()
-    }
-}
-
-#[inline]
-pub fn duration_as_millis_f64(val: Duration) -> f64 {
-    val.as_secs_f64() * 1000.0
-}
-
-#[inline]
-pub fn value_bucket<const NUM_BUCKETS: usize>(
-    size: usize,
-    buckets: &'static [usize; NUM_BUCKETS],
-) -> usize {
-    *buckets
-        .iter()
-        .find(|&bucket| size <= *bucket)
-        .or_else(|| buckets.last())
-        .unwrap_or(&0)
-}
+mod label;
+mod lazy;
+mod macros;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod examples;
+#[cfg(test)]
+mod test;
 
-    #[test]
-    fn test_value_buckets() {
-        const BUCKETS: [usize; 8] = [128, 256, 512, 2048, 4096, 65535, 131070, 262140];
+#[cfg(feature = "future")]
+pub mod future;
+#[cfg(feature = "future")]
+pub use future::{FutureExt, Metrics as FutureMetrics};
 
-        assert_eq!(value_bucket(0, &BUCKETS), 128);
-        assert_eq!(value_bucket(65536, &BUCKETS), 131070);
-        assert_eq!(value_bucket(131070, &BUCKETS), 131070);
-        assert_eq!(value_bucket(131071, &BUCKETS), 262140);
-        assert_eq!(value_bucket(usize::MAX, &BUCKETS), 262140);
+/// Builder of [`Lazy`] metrics.
+///
+/// Intended to be used exclusively in const contexts to specify metric
+/// attributes known at the compile time and to assign [`Lazy`] metrics to
+/// `static` variables.
+pub struct Builder {
+    attrs: StaticAttrs,
+}
+
+/// Creates a new [`Builder`] with the specified metric `name`.
+///
+/// For `future` metrics `name` is going to be used as `future_name` label
+/// value instead.
+pub const fn builder(name: &'static str) -> Builder {
+    Builder {
+        attrs: StaticAttrs {
+            name,
+            description: None,
+            labels: &[],
+        },
     }
 }
+
+/// Creates a new [`Lazy`] metric with the specified `name`.
+///
+/// For `future` metrics `name` is going to be used as `future_name` label
+/// value instead.
+pub const fn new<M: Metric>(name: &'static str) -> Lazy<M> {
+    builder(name).build()
+}
+
+impl Builder {
+    /// Specifies description of the metric.
+    ///
+    /// No-op for `future` metrics.
+    pub const fn with_description(mut self, description: &'static str) -> Self {
+        self.attrs.description = Some(description);
+        self
+    }
+
+    /// Specifies statically known metric labels.
+    pub const fn with_static_labels(
+        mut self,
+        labels: &'static [(&'static str, &'static str)],
+    ) -> Self {
+        self.attrs.labels = labels;
+        self
+    }
+
+    /// Builds the [`Lazy`] metric.
+    pub const fn build<M: Metric>(self) -> Lazy<M> {
+        Lazy::new(self.attrs)
+    }
+}
+
+impl Attrs {
+    fn name(&self) -> &'static str {
+        self.static_.name
+    }
+
+    fn description(&self) -> Option<&'static str> {
+        self.static_.description
+    }
+
+    fn labels(&self) -> DynamicLabels {
+        let mut labels = self.dynamic.labels.clone();
+        let static_ = self.static_.labels.iter();
+        labels.extend(static_.map(|(k, v)| Label::from_static_parts(k, v)));
+        labels
+    }
+
+    fn with_label(&self, label: Label) -> Self {
+        let mut this = self.clone();
+        this.dynamic.labels.push(label);
+        this
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct StaticAttrs {
+    name: &'static str,
+    description: Option<&'static str>,
+    labels: StaticLabels,
+}
+
+#[derive(Clone, Debug, Default)]
+struct DynamicAttrs {
+    labels: DynamicLabels,
+}
+
+mod sealed {
+    use crate::{DynamicAttrs, StaticAttrs};
+
+    #[derive(Clone, Debug)]
+    pub struct Attrs {
+        pub(super) static_: StaticAttrs,
+        pub(super) dynamic: DynamicAttrs,
+    }
+
+    pub trait Metric {
+        fn register(attrs: &Attrs) -> Self;
+    }
+
+    pub trait Execute<Op, L> {
+        fn execute(&self, op: Op, labels: L);
+    }
+
+    pub struct Increment<T>(pub T);
+    pub struct Decrement<T>(pub T);
+    pub struct Set<T>(pub T);
+    pub struct Record<T>(pub T);
+}
+
+pub type LabeledCounter<A> = Labeled<Counter, A>;
+pub type LabeledCounter2<A, B> = Labeled2<Counter, A, B>;
+pub type LabeledCounter3<A, B, C> = Labeled3<Counter, A, B, C>;
+pub type LabeledCounter4<A, B, C, D> = Labeled4<Counter, A, B, C, D>;
+
+impl Metric for Counter {
+    fn register(attrs: &Attrs) -> Self {
+        let counter = backend::counter!(attrs.name(), attrs.labels().iter());
+        if let Some(desc) = attrs.description() {
+            backend::describe_counter!(attrs.name(), desc);
+        }
+        counter
+    }
+}
+
+impl<T> Execute<Increment<T>, ()> for Counter
+where
+    T: Into<u64>,
+{
+    fn execute(&self, op: Increment<T>, _labels: ()) {
+        self.increment(op.0.into())
+    }
+}
+
+pub type LabeledGauge<A> = Labeled<Gauge, A>;
+pub type LabeledGauge2<A, B> = Labeled2<Gauge, A, B>;
+pub type LabeledGauge3<A, B, C> = Labeled3<Gauge, A, B, C>;
+pub type LabeledGauge4<A, B, C, D> = Labeled4<Gauge, A, B, C, D>;
+
+impl Metric for Gauge {
+    fn register(attrs: &Attrs) -> Self {
+        let gauge = backend::gauge!(attrs.name(), attrs.labels().iter());
+        if let Some(desc) = attrs.description() {
+            backend::describe_gauge!(attrs.name(), desc);
+        }
+        gauge
+    }
+}
+
+impl<T> Execute<Increment<T>, ()> for Gauge
+where
+    T: IntoF64,
+{
+    fn execute(&self, op: Increment<T>, _labels: ()) {
+        self.increment(op.0)
+    }
+}
+
+impl<T> Execute<Decrement<T>, ()> for Gauge
+where
+    T: IntoF64,
+{
+    fn execute(&self, op: Decrement<T>, _labels: ()) {
+        self.decrement(op.0)
+    }
+}
+
+impl<T> Execute<Set<T>, ()> for Gauge
+where
+    T: IntoF64,
+{
+    fn execute(&self, op: Set<T>, _labels: ()) {
+        self.set(op.0)
+    }
+}
+
+pub type LabeledHistogram<A> = Labeled<Histogram, A>;
+pub type LabeledHistogram2<A, B> = Labeled2<Histogram, A, B>;
+pub type LabeledHistogram3<A, B, C> = Labeled3<Histogram, A, B, C>;
+pub type LabeledHistogram4<A, B, C, D> = Labeled4<Histogram, A, B, C, D>;
+
+impl Metric for Histogram {
+    fn register(attrs: &Attrs) -> Self {
+        let histogram = backend::histogram!(attrs.name(), attrs.labels().iter());
+        if let Some(desc) = attrs.description() {
+            backend::describe_histogram!(attrs.name(), desc);
+        }
+        histogram
+    }
+}
+
+impl<T> Execute<Record<T>, ()> for Histogram
+where
+    T: IntoF64,
+{
+    fn execute(&self, op: Record<T>, _labels: ()) {
+        self.record(op.0)
+    }
+}
+
+#[cfg(feature = "future")]
+pub type LabeledFutureMetrics<A> = Labeled<FutureMetrics, A>;
+#[cfg(feature = "future")]
+pub type LabeledFutureMetrics2<A, B> = Labeled2<FutureMetrics, A, B>;
+#[cfg(feature = "future")]
+pub type LabeledFutureMetrics3<A, B, C> = Labeled3<FutureMetrics, A, B, C>;
+#[cfg(feature = "future")]
+pub type LabeledFutureMetrics4<A, B, C, D> = Labeled4<FutureMetrics, A, B, C, D>;
+
+pub type OptionalEnumLabel<const NAME: LabelName, T> = Optional<EnumLabel<NAME, T>>;
+pub type OptionalBoolLabel<const NAME: LabelName> = Optional<BoolLabel<NAME>>;
+pub type OptionalStringLabel<const NAME: LabelName, T = String> = Optional<StringLabel<NAME, T>>;
