@@ -138,10 +138,10 @@ pub fn update_jemalloc_metrics() -> Result<(), Error> {
         // corresponding size class.
         gauge("jemalloc_memory_bin_nrequests", bin_stats.nrequests);
 
-        gauge(
-            "jemalloc_memory_bin_nactive",
-            bin_stats.nmalloc - bin_stats.ndalloc,
-        );
+        let active = bin_stats.nmalloc - bin_stats.ndalloc;
+
+        gauge("jemalloc_memory_bin_nactive", active);
+        gauge("jemalloc_memory_bin_nactive_size", active * bin_const.size);
     }
 
     Ok(())
