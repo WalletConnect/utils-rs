@@ -137,6 +137,11 @@ pub fn update_jemalloc_metrics() -> Result<(), Error> {
         // Cumulative number of allocation requests satisfied by bin regions of the
         // corresponding size class.
         gauge("jemalloc_memory_bin_nrequests", bin_stats.nrequests);
+
+        gauge(
+            "jemalloc_memory_bin_nactive",
+            bin_stats.nmalloc - bin_stats.ndalloc,
+        );
     }
 
     Ok(())
