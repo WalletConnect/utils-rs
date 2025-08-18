@@ -51,7 +51,6 @@ rate_limit = { path = "./crates/rate_limit", optional = true }
 anyhow = "1"
 structopt = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["full"] }
-hyper = { version = "1.2.0", features = ["full"] }
 tower = { version = "0.4", features = ["util", "filter"] }
 axum = "0.7.5"
 metrics-exporter-prometheus = { version = "0.15", default-features = false }

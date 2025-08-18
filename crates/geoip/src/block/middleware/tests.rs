@@ -4,7 +4,7 @@ use {
         LocalResolver,
     },
     axum::body::Body,
-    hyper::{Request, Response, StatusCode},
+    http::{Request, Response, StatusCode},
     maxminddb::{geoip2, geoip2::City},
     std::{convert::Infallible, net::IpAddr, sync::Arc},
     tower::{Service, ServiceBuilder, ServiceExt},

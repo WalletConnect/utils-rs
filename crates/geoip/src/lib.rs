@@ -32,7 +32,7 @@ pub trait Resolver: Clone {
     fn lookup_geo_data(&self, addr: IpAddr) -> Result<Data, Self::Error>;
 }
 
-impl<'a, T> Resolver for &'a T
+impl<T> Resolver for &T
 where
     T: Resolver,
 {

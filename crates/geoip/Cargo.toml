@@ -6,15 +6,15 @@ edition = "2021"
 [features]
 default = []
 full = ["middleware"]
-middleware = ["dep:tower", "dep:tower-layer", "dep:axum-client-ip", "dep:http-body"]
+middleware = ["dep:tower", "dep:tower-layer", "dep:axum-client-ip", "dep:http-body", "dep:http"]
 
 [dependencies]
 tower = { version = "0.4", optional = true }
 tower-layer = { version = "0.3", optional = true }
 http-body = { version = "1.0.0", optional = true }
+http = { version = "1.0.0", optional = true }
 axum-client-ip = { version = "0.5.1", optional = true }
 bitflags = "2.4"
-hyper = "1.2.0"
 tracing = "0.1"
 thiserror = "1.0"
 futures = "0.3"

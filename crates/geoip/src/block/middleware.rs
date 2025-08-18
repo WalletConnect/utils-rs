@@ -11,8 +11,8 @@ use {
     crate::Resolver,
     axum_client_ip::InsecureClientIp,
     futures::future::{self, Either, Ready},
+    http::{Request, Response, StatusCode},
     http_body::Body,
-    hyper::{Request, Response, StatusCode},
     std::{
         sync::Arc,
         task::{Context, Poll},

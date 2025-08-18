@@ -1,6 +1,6 @@
 use {
     axum::body::Body,
-    hyper::{Request, Response, StatusCode},
+    axum::http::{Request, Response, StatusCode},
     std::{convert::Infallible, net::IpAddr},
     tower::{Service, ServiceBuilder, ServiceExt},
     wc::geoip::{
