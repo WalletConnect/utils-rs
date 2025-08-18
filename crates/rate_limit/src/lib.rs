@@ -231,7 +231,7 @@ mod tests {
         let key = Uuid::new_v4().to_string();
 
         // Before running the test, ensure the test keys are cleared
-        redis_clear_keys(REDIS_URI, &[key.clone()]).await;
+        redis_clear_keys(REDIS_URI, std::slice::from_ref(&key)).await;
 
         let refill_interval = chrono::Duration::try_milliseconds(REFILL_INTERVAL_MILLIS).unwrap();
         let rate_limit = |now_millis| {
@@ -274,6 +274,6 @@ mod tests {
         call_rate_limit_loop(Utc::now()).await;
 
         // Clear keys after the test
-        redis_clear_keys(REDIS_URI, &[key.clone()]).await;
+        redis_clear_keys(REDIS_URI, std::slice::from_ref(&key)).await;
     }
 }

@@ -1,9 +1,7 @@
 pub use maxminddb;
 use {
     aws_sdk_s3::{
-        error::SdkError,
-        operation::get_object::GetObjectError,
-        primitives::ByteStreamError,
+        error::SdkError, operation::get_object::GetObjectError, primitives::ByteStreamError,
         Client as S3Client,
     },
     bytes::Bytes,
@@ -110,7 +108,7 @@ impl Resolver for LocalResolver {
 #[derive(Debug, thiserror::Error)]
 pub enum MaxMindResolverError {
     #[error("S3 get object failed: {0}")]
-    GetObject(#[from] SdkError<GetObjectError>),
+    GetObject(#[from] Box<SdkError<GetObjectError>>),
 
     #[error("Byte stream error: {0}")]
     ByteStream(#[from] ByteStreamError),
@@ -135,7 +133,8 @@ impl MaxMindResolver {
             .bucket(bucket)
             .key(key)
             .send()
-            .await?;
+            .await
+            .map_err(|err| MaxMindResolverError::GetObject(Box::new(err)))?;
         let geo_data = s3_object.body.collect().await?.into_bytes();
 
         Self::from_buffer(geo_data)
