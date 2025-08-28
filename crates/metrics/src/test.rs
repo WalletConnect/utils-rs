@@ -11,9 +11,7 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[test]
 fn suite() {
     use crate::examples::{
-        macros_counter::counters,
-        macros_future_metrics::future_metrics,
-        macros_gauge::gauges,
+        macros_counter::counters, macros_future_metrics::future_metrics, macros_gauge::gauges,
         macros_histogram::histograms,
     };
 
