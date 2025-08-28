@@ -1,5 +1,6 @@
 -- Adapted from https://github.com/upstash/ratelimit/blob/3a8cfb00e827188734ac347965cb743a75fcb98a/src/single.ts#L311
 local keys = KEYS -- identifier including prefixes
+local rcall = redis.call
 local maxTokens = tonumber(ARGV[1]) -- maximum number of tokens
 local interval = tonumber(ARGV[2]) -- size of the window in milliseconds
 local refillRate = tonumber(ARGV[3]) -- how many tokens are refilled after each interval
@@ -7,8 +8,9 @@ local now = tonumber(ARGV[4]) -- current timestamp in milliseconds
 
 local results = {}
 
-for i, key in ipairs(keys) do
-    local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
+for i = 1, #keys do
+    local key = keys[i]
+    local bucket = rcall("HMGET", key, "refilledAt", "tokens")
 
     local refilledAt
     local tokens
@@ -22,21 +24,24 @@ for i, key in ipairs(keys) do
     end
 
     if now >= refilledAt + interval then
-        local numRefills = math.floor((now - refilledAt) / interval)
+        local elapsed = now - refilledAt
+        local numRefills = math.floor(elapsed / interval)
         tokens = math.min(maxTokens, tokens + numRefills * refillRate)
-
         refilledAt = refilledAt + numRefills * interval
     end
 
+    local next_refill = refilledAt + interval
+
     if tokens == 0 then
-        results[key] = {-1, refilledAt + interval}
+        -- Do not mutate TTL/state on empty bucket to avoid unexpected resets under concurrency
+        results[key] = {-1, next_refill}
     else
         local remaining = tokens - 1
         local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
 
-        redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
-        redis.call("PEXPIRE", key, expireAt)
-        results[key] = {remaining, refilledAt + interval}
+        rcall("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
+        rcall("PEXPIRE", key, expireAt)
+        results[key] = {remaining, next_refill}
     end
 end
 
