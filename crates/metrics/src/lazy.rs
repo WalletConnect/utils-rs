@@ -2,9 +2,7 @@ use {
     crate::{
         label::{DynamicLabel, ResolveLabels, WithLabel},
         sealed::{Decrement, Execute, Increment, Record, Set},
-        Attrs,
-        Metric,
-        StaticAttrs,
+        Attrs, Metric, StaticAttrs,
     },
     metrics::{Counter, Gauge, Histogram, IntoF64},
     std::sync::OnceLock,
@@ -79,7 +77,7 @@ where
     L: DynamicLabel<M>,
 {
     /// See [`WithLabel::resolve_label`].
-    pub fn resolve_label<T>(&'static self, label: T) -> &M
+    pub fn resolve_label<T>(&'static self, label: T) -> &'static M
     where
         WithLabel<L, M>: Metric + ResolveLabels<(T,), Target = M>,
     {
@@ -90,7 +88,7 @@ where
     pub fn resolve_labels<LS>(
         &'static self,
         labels: LS,
-    ) -> &<WithLabel<L, M> as ResolveLabels<LS>>::Target
+    ) -> &'static <WithLabel<L, M> as ResolveLabels<LS>>::Target
     where
         WithLabel<L, M>: Metric + ResolveLabels<LS>,
     {
