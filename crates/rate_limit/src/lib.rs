@@ -2,6 +2,7 @@ use {
     chrono::{DateTime, Duration, Utc},
     deadpool_redis::{Pool, PoolError},
     moka::future::Cache,
+    once_cell::sync::Lazy,
     redis::{RedisError, Script},
     std::{collections::HashMap, sync::Arc},
 };
@@ -30,6 +31,9 @@ pub enum RateLimitError {
     Internal(InternalRateLimitError),
 }
 
+static TOKEN_BUCKET_SCRIPT: Lazy<Script> =
+    Lazy::new(|| Script::new(include_str!("token_bucket.lua")));
+
 /// Rate limit check using a token bucket algorithm for one key and in-memory
 /// cache for rate-limited keys. `mem_cache` TTL must be set to the same value
 /// as the refill interval.
@@ -50,9 +54,10 @@ pub async fn token_bucket(
         }));
     }
 
+    let keys = [key.clone()];
     let result = token_bucket_many(
-        redis_write_pool,
-        vec![key.clone()],
+        redis_write_pool.as_ref(),
+        &keys,
         max_tokens,
         interval,
         refill_rate,
@@ -79,8 +84,8 @@ pub async fn token_bucket(
 
 /// Rate limit check using a token bucket algorithm for many keys.
 pub async fn token_bucket_many(
-    redis_write_pool: &Arc<Pool>,
-    keys: Vec<String>,
+    redis_write_pool: &Pool,
+    keys: &[String],
     max_tokens: u32,
     interval: Duration,
     refill_rate: u32,
@@ -89,22 +94,23 @@ pub async fn token_bucket_many(
     // Remaining is number of tokens remaining. -1 for rate limited.
     // Reset is the time at which there will be 1 more token than before. This
     // could, for example, be used to cache a 0 token count.
-    Script::new(include_str!("token_bucket.lua"))
-        .key(keys)
-        .arg(max_tokens)
-        .arg(interval.num_milliseconds())
-        .arg(refill_rate)
-        .arg(now_millis.timestamp_millis())
-        .invoke_async::<_, String>(
-            &mut redis_write_pool
-                .clone()
-                .get()
-                .await
-                .map_err(InternalRateLimitError::Pool)?,
-        )
-        .await
-        .map_err(InternalRateLimitError::Redis)
-        .map(|value| serde_json::from_str(&value).expect("Redis script should return valid JSON"))
+    {
+        let mut conn = redis_write_pool
+            .get()
+            .await
+            .map_err(InternalRateLimitError::Pool)?;
+
+        let value: String = TOKEN_BUCKET_SCRIPT
+            .key(keys)
+            .arg(max_tokens)
+            .arg(interval.num_milliseconds())
+            .arg(refill_rate)
+            .arg(now_millis.timestamp_millis())
+            .invoke_async(&mut conn)
+            .await
+            .map_err(InternalRateLimitError::Redis)?;
+        Ok(serde_json::from_str(&value).expect("Redis script should return valid JSON"))
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +131,7 @@ mod tests {
 
     async fn redis_clear_keys(conn_uri: &str, keys: &[String]) {
         let client = redis::Client::open(conn_uri).unwrap();
-        let mut conn = client.get_async_connection().await.unwrap();
+        let mut conn = client.get_multiplexed_async_connection().await.unwrap();
         for key in keys {
             let _: () = conn.del(key).await.unwrap();
         }
@@ -139,9 +145,10 @@ mod tests {
             let key = key.clone();
             let pool = pool.clone();
             async move {
+                let keys = [key.clone()];
                 token_bucket_many(
                     &pool,
-                    vec![key.clone()],
+                    &keys,
                     MAX_TOKENS,
                     refill_interval,
                     REFILL_RATE,
@@ -231,7 +238,7 @@ mod tests {
         let key = Uuid::new_v4().to_string();
 
         // Before running the test, ensure the test keys are cleared
-        redis_clear_keys(REDIS_URI, &[key.clone()]).await;
+        redis_clear_keys(REDIS_URI, std::slice::from_ref(&key)).await;
 
         let refill_interval = chrono::Duration::try_milliseconds(REFILL_INTERVAL_MILLIS).unwrap();
         let rate_limit = |now_millis| {
@@ -274,6 +281,6 @@ mod tests {
         call_rate_limit_loop(Utc::now()).await;
 
         // Clear keys after the test
-        redis_clear_keys(REDIS_URI, &[key.clone()]).await;
+        redis_clear_keys(REDIS_URI, std::slice::from_ref(&key)).await;
     }
 }

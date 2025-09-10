@@ -33,7 +33,7 @@ jobs:
           - name: "Formatting"
             cmd: fmt
             args: --all -- --check
-            rust: nightly
+            rust: stable
           - name: "Tests"
             cmd: nextest
             args: run --workspace --all-features --retries 3

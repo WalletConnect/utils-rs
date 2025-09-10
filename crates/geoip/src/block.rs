@@ -85,7 +85,7 @@ impl ZoneFilter {
                     geo_data
                         .subdivisions
                         .as_deref()
-                        .map_or(false, |subdivisions| {
+                        .is_some_and(|subdivisions| {
                             subdivisions
                                 .iter()
                                 .filter_map(|sub| sub.iso_code)

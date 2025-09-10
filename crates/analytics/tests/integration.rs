@@ -1,15 +1,7 @@
 use {
     analytics::{
-        AnalyticsExt,
-        BatchCollector,
-        BatchObserver,
-        CollectionObserver,
-        Collector,
-        CollectorConfig,
-        ExportObserver,
-        Exporter,
-        ParquetBatchFactory,
-        ParquetConfig,
+        AnalyticsExt, BatchCollector, BatchObserver, CollectionObserver, Collector,
+        CollectorConfig, ExportObserver, Exporter, ParquetBatchFactory, ParquetConfig,
     },
     async_trait::async_trait,
     parquet_derive::ParquetRecordWriter,

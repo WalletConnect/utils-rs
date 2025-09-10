@@ -1,9 +1,7 @@
 pub use maxminddb;
 use {
     aws_sdk_s3::{
-        error::SdkError,
-        operation::get_object::GetObjectError,
-        primitives::ByteStreamError,
+        error::SdkError, operation::get_object::GetObjectError, primitives::ByteStreamError,
         Client as S3Client,
     },
     bytes::Bytes,
@@ -32,7 +30,7 @@ pub trait Resolver: Clone {
     fn lookup_geo_data(&self, addr: IpAddr) -> Result<Data, Self::Error>;
 }
 
-impl<'a, T> Resolver for &'a T
+impl<T> Resolver for &T
 where
     T: Resolver,
 {
@@ -110,13 +108,25 @@ impl Resolver for LocalResolver {
 #[derive(Debug, thiserror::Error)]
 pub enum MaxMindResolverError {
     #[error("S3 get object failed: {0}")]
-    GetObject(#[from] SdkError<GetObjectError>),
+    GetObject(Box<SdkError<GetObjectError>>),
 
     #[error("Byte stream error: {0}")]
-    ByteStream(#[from] ByteStreamError),
+    ByteStream(Box<ByteStreamError>),
 
     #[error("MaxMind DB lookup error: {0}")]
     MaxMindDB(#[from] maxminddb::MaxMindDBError),
+}
+
+impl From<SdkError<GetObjectError>> for MaxMindResolverError {
+    fn from(e: SdkError<GetObjectError>) -> Self {
+        MaxMindResolverError::GetObject(Box::new(e))
+    }
+}
+
+impl From<ByteStreamError> for MaxMindResolverError {
+    fn from(e: ByteStreamError) -> Self {
+        MaxMindResolverError::ByteStream(Box::new(e))
+    }
 }
 
 #[derive(Debug, Clone)]
