@@ -6,7 +6,7 @@ edition = "2021"
 [features]
 default = ["future"]
 future = ["dep:pin-project"]
-prometheus-exporter = ["metrics-exporter-prometheus"]
+exporter_prometheus = ["metrics-exporter-prometheus"]
 
 [dependencies]
 metrics = "0.24"

@@ -83,7 +83,7 @@
 //! ```
 
 // Re-export it to make sure that we use the compatible version.
-#[cfg(feature = "prometheus-exporter")]
+#[cfg(feature = "exporter_prometheus")]
 pub use metrics_exporter_prometheus as prometheus_exporter;
 pub use {
     enum_ordinalize,
