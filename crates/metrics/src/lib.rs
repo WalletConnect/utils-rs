@@ -82,6 +82,9 @@
 //! GAUGE_B.decrement(2, labels);
 //! ```
 
+// Re-export it to make sure that we use the compatible version.
+#[cfg(feature = "exporter_prometheus")]
+pub use metrics_exporter_prometheus as exporter_prometheus;
 pub use {
     enum_ordinalize,
     label::{label_name, BoolLabel, Enum, EnumLabel, LabelName, Optional, StringLabel, WithLabel},
