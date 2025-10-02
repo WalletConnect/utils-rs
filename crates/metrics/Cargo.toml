@@ -10,7 +10,7 @@ exporter_prometheus = ["metrics-exporter-prometheus"]
 
 [dependencies]
 metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.17", optional = true }
+metrics-exporter-prometheus = { version = "0.17", default-features = false, optional = true }
 smallvec = "1"
 parking_lot = "0.12"
 enum-ordinalize = "4.3"
