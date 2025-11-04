@@ -53,6 +53,8 @@ pub mod name {
     pub const FUTURES_FINISHED: &str = "futures_finished_count";
     pub const FUTURES_CANCELLED: &str = "futures_cancelled_count";
 
+    pub const FUTURES_IN_FLIGHT: &str = "futures_in_flight";
+
     pub const FUTURE_POLL_DURATION: &str = "future_poll_duration";
     pub const FUTURE_POLL_DURATION_MAX: &str = "future_poll_duration_max";
     pub const FUTURE_POLLS: &str = "future_polls_count";
@@ -67,6 +69,8 @@ pub struct Metrics {
     started: Counter,
     finished: Counter,
     cancelled: Counter,
+
+    in_flight: Gauge,
 
     poll_duration: Histogram,
     poll_duration_max: Gauge,
@@ -86,6 +90,7 @@ impl Metric for Metrics {
             started: counter!(name::FUTURES_STARTED, labels.iter()),
             finished: counter!(name::FUTURES_FINISHED, labels.iter()),
             cancelled: counter!(name::FUTURES_CANCELLED, labels.iter()),
+            in_flight: gauge!(name::FUTURES_IN_FLIGHT, labels.iter()),
             poll_duration: histogram!(name::FUTURE_POLL_DURATION, labels.iter()),
             poll_duration_max: gauge!(name::FUTURE_POLL_DURATION_MAX, labels.iter()),
             polls: counter!(name::FUTURE_POLLS, labels.iter()),
@@ -160,6 +165,7 @@ impl<F: Future> Future for Metered<F> {
         if state.started_at.is_none() {
             state.started_at = Some(Instant::now());
             state.metrics.started.increment(1);
+            state.metrics.in_flight.increment(1);
         }
 
         let poll_started_at = Instant::now();
@@ -186,6 +192,10 @@ impl<F: Future> Future for Metered<F> {
 
 impl Drop for State {
     fn drop(&mut self) {
+        if self.started_at.is_some() {
+            self.metrics.in_flight.decrement(1);
+        }
+
         if !self.is_finished {
             self.metrics.cancelled.increment(1);
 
