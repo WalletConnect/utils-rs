@@ -192,7 +192,9 @@ impl<F: Future> Future for Metered<F> {
 
 impl Drop for State {
     fn drop(&mut self) {
-        self.metrics.in_flight.decrement(1);
+        if self.started_at.is_some() {
+            self.metrics.in_flight.decrement(1);
+        }
 
         if !self.is_finished {
             self.metrics.cancelled.increment(1);
