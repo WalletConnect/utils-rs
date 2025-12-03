@@ -2,7 +2,9 @@ use {
     crate::{
         label::{DynamicLabel, ResolveLabels, WithLabel},
         sealed::{Decrement, Execute, Increment, Record, Set},
-        Attrs, Metric, StaticAttrs,
+        Attrs,
+        Metric,
+        StaticAttrs,
     },
     metrics::{Counter, Gauge, Histogram, IntoF64},
     std::sync::OnceLock,

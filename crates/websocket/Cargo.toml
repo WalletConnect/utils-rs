@@ -1,0 +1,37 @@
+[package]
+name = "wc_websocket"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+full = ["axum", "tungstenite", "warp", "json"]
+axum = ["dep:axum"]
+tungstenite = ["dep:tungstenite", "dep:tokio-tungstenite"]
+warp = ["dep:warp"]
+json = ["dep:serde", "dep:serde_json"]
+
+[dependencies]
+axum = { optional = true, version = "0.8", features = ["ws"] }
+tokio-tungstenite = { optional = true, version = "0.28" }
+tungstenite = { optional = true, version = "0.28" }
+warp = { optional = true, version = "0.4", features = ["websocket"] }
+serde = { optional = true, version = "1.0" }
+serde_json = { optional = true, version = "1.0" }
+futures-concurrency = "7.6"
+futures-timer = "3.0"
+futures-util = "0.3"
+pin-project = "1.1"
+tap = "1.0"
+thiserror = "2.0"
+tokio = { version = "1.48", default-features = false, features = ["rt", "time"] }
+tokio-stream = "0.1"
+tokio-util = "0.7"
+enum-as-inner = "0.6"
+bytes = "1.11"
+
+[dev-dependencies]
+tokio = { version = "1.48", features = ["macros"] }
+serde = { version = "1.0", features = ["derive"] }
+tokio-tungstenite = "0.28"
+wc_websocket = { path = ".", features = ["tungstenite", "json"] }

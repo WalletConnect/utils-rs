@@ -1,7 +1,9 @@
 pub use maxminddb;
 use {
     aws_sdk_s3::{
-        error::SdkError, operation::get_object::GetObjectError, primitives::ByteStreamError,
+        error::SdkError,
+        operation::get_object::GetObjectError,
+        primitives::ByteStreamError,
         Client as S3Client,
     },
     bytes::Bytes,
