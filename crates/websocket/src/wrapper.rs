@@ -37,11 +37,11 @@ impl Default for Config {
     }
 }
 
-/// A WebSocket transport that supports sending and receiving messages using
-/// a specified data codec.
+/// WebSocket wrapper that supports sending and receiving messages using the
+/// specified data codec.
 ///
-/// This is high-level wrapper around the provided WebSocket [`Adapter`] that
-/// adds serialization and implements [`Sink`] and [`Stream`].
+/// This is a high-level wrapper around the provided [`Adapter`] that adds
+/// serialization and implements [`Sink`] and [`Stream`].
 ///
 /// The underlying transport is closed when the [`WebSocket`] is dropped.
 #[pin_project]

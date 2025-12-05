@@ -87,7 +87,7 @@ where
                         observer.latency(rtt);
                     }
                 })
-                .forward(PollSender::new(out_tx.clone()).sink_map_err(Error::internal))
+                .forward(PollSender::new(out_tx).sink_map_err(Error::internal))
                 .map(|_| internal_shutdown.notify_one());
 
             (fwd_in, fwd_out).join().map(drop).await;
