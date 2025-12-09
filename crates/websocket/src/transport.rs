@@ -1,5 +1,5 @@
 use {
-    crate::{Adapter, Error, Message, Observer},
+    crate::{Backend, Error, Message, Observer},
     bytes::Bytes,
     futures_concurrency::future::{Join as _, Race},
     futures_timer::Delay,
@@ -27,14 +27,14 @@ impl Drop for DropGuard {
 
 /// Spawn the transport task, which handles forwarding messages between the
 /// native transport and [`Core`] via [`tokio`] channels.
-pub fn spawn<A, O>(
-    transport: A::Transport,
+pub fn spawn<B, O>(
+    transport: B::Transport,
     observer: O,
     capacity: usize,
     heartbeat_interval: Duration,
 ) -> (mpsc::Sender<Message>, mpsc::Receiver<Message>, DropGuard)
 where
-    A: Adapter,
+    B: Backend,
     O: Observer,
 {
     let (trans_tx, trans_rx) = transport.split();
@@ -65,14 +65,14 @@ where
                 .inspect(|msg| {
                     observer.outbound_message(msg);
                 })
-                .map(A::encode_message)
+                .map(B::encode_message)
                 .map(Ok)
                 .forward(trans_tx);
 
             // Forward messages from the native transport to the `WebSocket` instance.
             let fwd_out = trans_rx
                 .take_until(external_shutdown.notified())
-                .map_ok(A::decode_message)
+                .map_ok(B::decode_message)
                 .map_err(Error::transport)
                 .inspect_ok(|msg| {
                     observer.inbound_message(msg);

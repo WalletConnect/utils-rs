@@ -1,12 +1,12 @@
 use {
-    crate::{Adapter, CloseFrame, Message},
+    crate::{Backend, CloseFrame, Message},
     warp::{
         Error as NativeError,
         ws::{Message as NativeMessage, WebSocket as NativeWebSocket},
     },
 };
 
-impl Adapter for NativeWebSocket {
+impl Backend for NativeWebSocket {
     type Error = NativeError;
     type Message = NativeMessage;
     type Transport = Self;

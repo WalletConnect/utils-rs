@@ -1,5 +1,5 @@
 use {
-    crate::{Adapter, CloseFrame, Message},
+    crate::{Backend, CloseFrame, Message},
     axum::{
         Error as NativeError,
         body::Bytes,
@@ -12,7 +12,7 @@ use {
     },
 };
 
-impl Adapter for NativeWebSocket {
+impl Backend for NativeWebSocket {
     type Error = NativeError;
     type Message = NativeMessage;
     type Transport = Self;

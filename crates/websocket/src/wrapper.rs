@@ -1,11 +1,10 @@
 use {
     crate::{
-        Adapter,
+        Backend,
         Builder,
         DataCodec,
         Error,
         Observer,
-        sealed::MessageCodec,
         transport::{self, Core, DropGuard},
     },
     futures_util::{Sink, Stream},
@@ -40,7 +39,7 @@ impl Default for Config {
 /// WebSocket wrapper that supports sending and receiving messages using the
 /// specified data codec.
 ///
-/// This is a high-level wrapper around the provided [`Adapter`] that adds
+/// This is a high-level wrapper around the provided [`Backend`] that adds
 /// serialization and implements [`Sink`] and [`Stream`].
 ///
 /// The underlying transport is closed when the [`WebSocket`] is dropped.
@@ -64,22 +63,22 @@ impl<C> WebSocket<C>
 where
     C: DataCodec,
 {
-    /// Creates a new [`WebSocket`] instance with the specified adapter and
+    /// Creates a new [`WebSocket`] instance with the specified backend and
     /// codec using default configuration.
-    pub fn new<A>(adapter: A, codec: C) -> Self
+    pub fn new<B>(backend: B, codec: C) -> Self
     where
-        A: Adapter,
+        B: Backend,
     {
-        Self::new_internal(adapter, codec, (), Default::default())
+        Self::new_internal(backend, codec, (), Default::default())
     }
 
-    pub(crate) fn new_internal<A, O>(adapter: A, codec: C, observer: O, config: Config) -> Self
+    pub(crate) fn new_internal<B, O>(backend: B, codec: C, observer: O, config: Config) -> Self
     where
-        A: Adapter,
+        B: Backend,
         O: Observer,
     {
-        let (tx, rx, _guard) = transport::spawn::<A, O>(
-            adapter.into_transport(),
+        let (tx, rx, _guard) = transport::spawn::<B, O>(
+            backend.into_transport(),
             observer,
             config.channel_capacity,
             config.heartbeat_interval,
@@ -100,7 +99,7 @@ where
     type Error = Error;
 
     fn start_send(self: Pin<&mut Self>, item: C::Payload) -> Result<(), Self::Error> {
-        let item = self.codec.encode(item).and_then(C::MessageCodec::encode)?;
+        let item = self.codec.encode(item)?.into();
 
         self.project().inner.start_send(item)
     }
@@ -129,7 +128,7 @@ where
 
         let data = task::ready!(this.inner.poll_next(cx))
             .map(|msg| {
-                C::MessageCodec::decode(msg)
+                C::Message::try_from(msg)
                     .and_then(|data| this.codec.decode(data))
                     .ok()
             })

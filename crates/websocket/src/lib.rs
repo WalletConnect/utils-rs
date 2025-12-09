@@ -4,13 +4,14 @@ pub use json::Json;
 pub use tokio_tungstenite;
 use {
     crate::wrapper::Config,
+    derive_more::{From, Into},
     enum_as_inner::EnumAsInner,
     futures_util::{Sink, Stream},
     std::{error::Error as StdError, time::Duration},
 };
 pub use {bytes::Bytes, wrapper::WebSocket};
 
-mod adapters;
+mod backend;
 mod transport;
 mod wrapper;
 
@@ -38,11 +39,11 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn serialization<T: StdError + 'static>(err: T) -> Self {
+    pub fn encoding<T: StdError + 'static>(err: T) -> Self {
         Self::Encoding(Box::new(err))
     }
 
-    pub fn deserialization<T: StdError + 'static>(err: T) -> Self {
+    pub fn decoding<T: StdError + 'static>(err: T) -> Self {
         Self::Decoding(Box::new(err))
     }
 
@@ -109,28 +110,28 @@ impl Observer for () {}
 pub trait DataCodec {
     /// Associated message codec used to wrap and unwrap the encoded payload
     /// into the [`Message`] transmitted.
-    type MessageCodec: sealed::MessageCodec;
+    type Message: Into<Message> + TryFrom<Message, Error = Error>;
 
     /// Payload type that can be sent and received. Assumes a symmetrical
     /// payload format for both directions.
     type Payload: Send + 'static;
 
-    /// Encode the given payload into bytes for transmission.
-    fn encode(&self, data: Self::Payload) -> Result<Bytes, Error>;
+    /// Encode the given payload into [`Message`] for transmission.
+    fn encode(&self, data: Self::Payload) -> Result<Self::Message, Error>;
 
-    /// Decode the given bytes into the payload.
-    fn decode(&self, data: Bytes) -> Result<Self::Payload, Error>;
+    /// Decode the given [`Message`] into the payload.
+    fn decode(&self, data: Self::Message) -> Result<Self::Payload, Error>;
 }
 
-/// Adapter for integrating different WebSocket transport implementations.
-pub trait Adapter: Send + 'static {
+/// Backend for integrating different WebSocket transport implementations.
+pub trait Backend: Send + 'static {
     type Error: StdError + Send;
     type Message: Send;
     type Transport: Sink<Self::Message, Error = Self::Error>
         + Stream<Item = Result<Self::Message, Self::Error>>
         + Send;
 
-    /// Convert the adapter into the underlying transport.
+    /// Convert the backend into the underlying transport.
     fn into_transport(self) -> Self::Transport;
 
     /// Encode the given [`Message`] into the transport-specific message type.
@@ -163,17 +164,17 @@ mod json {
     where
         T: Serialize + DeserializeOwned + Send + 'static,
     {
-        type MessageCodec = TextMessage;
+        type Message = TextMessage;
         type Payload = T;
 
-        fn encode(&self, data: Self::Payload) -> Result<Bytes, Error> {
-            serde_json::to_vec(&data)
-                .map(Into::into)
-                .map_err(Error::serialization)
+        fn encode(&self, data: Self::Payload) -> Result<Self::Message, Error> {
+            serde_json::to_string(&data)
+                .map(TextMessage)
+                .map_err(Error::encoding)
         }
 
-        fn decode(&self, data: Bytes) -> Result<Self::Payload, Error> {
-            serde_json::from_slice(&data).map_err(Error::deserialization)
+        fn decode(&self, data: Self::Message) -> Result<Self::Payload, Error> {
+            serde_json::from_slice(data.as_bytes()).map_err(Error::decoding)
         }
     }
 }
@@ -184,15 +185,15 @@ mod json {
 pub struct Binary;
 
 impl DataCodec for Binary {
-    type MessageCodec = BinaryMessage;
+    type Message = BinaryMessage;
     type Payload = Bytes;
 
-    fn encode(&self, data: Self::Payload) -> Result<Bytes, Error> {
-        Ok(data)
+    fn encode(&self, data: Self::Payload) -> Result<Self::Message, Error> {
+        Ok(data.into())
     }
 
-    fn decode(&self, data: Bytes) -> Result<Self::Payload, Error> {
-        Ok(data)
+    fn decode(&self, data: Self::Message) -> Result<Self::Payload, Error> {
+        Ok(data.into())
     }
 }
 
@@ -202,28 +203,32 @@ impl DataCodec for Binary {
 pub struct Plaintext;
 
 impl DataCodec for Plaintext {
-    type MessageCodec = TextMessage;
+    type Message = TextMessage;
     type Payload = String;
 
-    fn encode(&self, data: Self::Payload) -> Result<Bytes, Error> {
+    fn encode(&self, data: Self::Payload) -> Result<Self::Message, Error> {
         Ok(data.into())
     }
 
-    fn decode(&self, data: Bytes) -> Result<Self::Payload, Error> {
-        String::from_utf8(data.into()).map_err(Error::deserialization)
+    fn decode(&self, data: Self::Message) -> Result<Self::Payload, Error> {
+        Ok(data.into())
     }
 }
 
-mod sealed {
-    use super::*;
+/// WebSocket message codec for binary data. Encodes the payload into
+/// [`Message::Binary`].
+#[derive(Into, From)]
+pub struct BinaryMessage(Bytes);
 
-    /// Codec for encoding and decoding WebSocket messages.
-    ///
-    /// The only two useful implementations for consumers are [`BinaryMessage`]
-    /// and [`TextMessage`].
-    pub trait MessageCodec {
-        fn encode(data: Bytes) -> Result<Message, Error>;
-        fn decode(data: Message) -> Result<Bytes, Error>;
+impl BinaryMessage {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl From<BinaryMessage> for Message {
+    fn from(msg: BinaryMessage) -> Self {
+        Message::Binary(msg.into())
     }
 }
 
@@ -231,21 +236,30 @@ mod sealed {
 #[error("Message is not binary")]
 struct InvalidBinaryError;
 
-/// WebSocket message codec for binary data. Encodes the payload into
-/// [`Message::Binary`].
-pub struct BinaryMessage;
+impl TryFrom<Message> for BinaryMessage {
+    type Error = Error;
 
-impl sealed::MessageCodec for BinaryMessage {
-    fn encode(data: Bytes) -> Result<Message, Error> {
-        Ok(Message::Binary(data))
+    fn try_from(data: Message) -> Result<Self, Self::Error> {
+        data.into_binary()
+            .map(Self)
+            .map_err(|_| Error::decoding(InvalidBinaryError))
     }
+}
 
-    fn decode(data: Message) -> Result<Bytes, Error> {
-        if let Message::Binary(data) = data {
-            Ok(data)
-        } else {
-            Err(Error::invalid_payload(InvalidBinaryError))
-        }
+/// WebSocket message codec for text data. Encodes the payload into
+/// [`Message::Text`].
+#[derive(Into, From)]
+pub struct TextMessage(String);
+
+impl TextMessage {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}
+
+impl From<TextMessage> for Message {
+    fn from(msg: TextMessage) -> Self {
+        Message::Text(msg.into())
     }
 }
 
@@ -253,29 +267,19 @@ impl sealed::MessageCodec for BinaryMessage {
 #[error("Message is not UTF-8")]
 struct InvalidUtf8Error;
 
-/// WebSocket message codec for text data. Encodes the payload into
-/// [`Message::Text`].
-pub struct TextMessage;
+impl TryFrom<Message> for TextMessage {
+    type Error = Error;
 
-impl sealed::MessageCodec for TextMessage {
-    fn encode(data: Bytes) -> Result<Message, Error> {
-        String::from_utf8(data.into())
-            .map(Message::Text)
-            .map_err(|_| Error::invalid_payload(InvalidUtf8Error))
-    }
-
-    fn decode(data: Message) -> Result<Bytes, Error> {
-        if let Message::Text(data) = data {
-            Ok(data.into_bytes().into())
-        } else {
-            Err(Error::invalid_payload(InvalidBinaryError))
-        }
+    fn try_from(data: Message) -> Result<Self, Self::Error> {
+        data.into_text()
+            .map(Self)
+            .map_err(|_| Error::decoding(InvalidUtf8Error))
     }
 }
 
 /// Builder for configuring and constructing a [`WebSocket`] instance.
-pub struct Builder<A, C, O> {
-    adapter: A,
+pub struct Builder<B, C, O> {
+    backend: B,
     codec: C,
     observer: O,
     config: Config,
@@ -285,7 +289,7 @@ impl Builder<(), (), ()> {
     /// Create a new [`WebSocket`] builder instance.
     pub fn new() -> Self {
         Self {
-            adapter: (),
+            backend: (),
             codec: (),
             observer: (),
             config: Default::default(),
@@ -299,14 +303,14 @@ impl Default for Builder<(), (), ()> {
     }
 }
 
-impl<A, C, O> Builder<A, C, O> {
-    /// Set the [`Adapter`] for the WebSocket.
-    pub fn adapter<T>(self, adapter: T) -> Builder<T, C, O>
+impl<B, C, O> Builder<B, C, O> {
+    /// Set the [`Backend`] for the WebSocket.
+    pub fn backend<T>(self, backend: T) -> Builder<T, C, O>
     where
-        T: Adapter,
+        T: Backend,
     {
         Builder {
-            adapter,
+            backend,
             codec: self.codec,
             observer: self.observer,
             config: self.config,
@@ -314,12 +318,12 @@ impl<A, C, O> Builder<A, C, O> {
     }
 
     /// Set the [`DataCodec`] for the WebSocket.
-    pub fn codec<T>(self, codec: T) -> Builder<A, T, O>
+    pub fn codec<T>(self, codec: T) -> Builder<B, T, O>
     where
         T: DataCodec,
     {
         Builder {
-            adapter: self.adapter,
+            backend: self.backend,
             codec,
             observer: self.observer,
             config: self.config,
@@ -327,12 +331,12 @@ impl<A, C, O> Builder<A, C, O> {
     }
 
     /// Set the [`Observer`] for the WebSocket.
-    pub fn observer<T>(self, observer: T) -> Builder<A, C, T>
+    pub fn observer<T>(self, observer: T) -> Builder<B, C, T>
     where
         T: Observer,
     {
         Builder {
-            adapter: self.adapter,
+            backend: self.backend,
             codec: self.codec,
             observer,
             config: self.config,
@@ -371,10 +375,10 @@ impl<A, C, O> Builder<A, C, O> {
     /// Build the configured [`WebSocket`] instance.
     pub fn build(self) -> WebSocket<C>
     where
-        A: Adapter,
+        B: Backend,
         C: DataCodec,
         O: Observer,
     {
-        WebSocket::new_internal(self.adapter, self.codec, self.observer, self.config)
+        WebSocket::new_internal(self.backend, self.codec, self.observer, self.config)
     }
 }

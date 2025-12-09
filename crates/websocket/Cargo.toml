@@ -1,5 +1,5 @@
 [package]
-name = "wc_websocket"
+name = "websocket"
 version = "0.1.0"
 edition = "2024"
 
@@ -29,9 +29,10 @@ tokio-stream = "0.1"
 tokio-util = "0.7"
 enum-as-inner = "0.6"
 bytes = "1.11"
+derive_more = { version = "2.1", features = ["into", "from"] }
 
 [dev-dependencies]
 tokio = { version = "1.48", features = ["macros"] }
 serde = { version = "1.0", features = ["derive"] }
 tokio-tungstenite = "0.28"
-wc_websocket = { path = ".", features = ["tungstenite", "json"] }
+websocket = { path = ".", features = ["tungstenite", "json"] }

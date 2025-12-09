@@ -1,5 +1,5 @@
 use {
-    crate::{Adapter, CloseFrame, Message},
+    crate::{Backend, CloseFrame, Message},
     bytes::Bytes,
     tokio::io::{AsyncRead, AsyncWrite},
     tokio_tungstenite::WebSocketStream,
@@ -11,7 +11,7 @@ use {
     },
 };
 
-impl<T> Adapter for WebSocketStream<T>
+impl<T> Backend for WebSocketStream<T>
 where
     T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {

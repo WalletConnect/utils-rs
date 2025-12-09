@@ -16,7 +16,7 @@ use {
         sync::Notify,
     },
     tokio_tungstenite::{MaybeTlsStream, WebSocketStream},
-    wc_websocket::{Binary, DataCodec, Json, Message, Observer, Plaintext, WebSocket},
+    websocket::{Binary, DataCodec, Json, Message, Observer, Plaintext, WebSocket},
 };
 
 struct EchoServer<C> {
@@ -160,7 +160,7 @@ impl Observer for HeartbeatObserver {
 async fn heartbeat() {
     let server = EchoServer::with_builder(|socket| {
         WebSocket::builder()
-            .adapter(socket)
+            .backend(socket)
             .codec(Plaintext)
             .heartbeat_interval(Duration::from_millis(300))
             .build()
@@ -170,7 +170,7 @@ async fn heartbeat() {
     let observer = HeartbeatObserver::default();
 
     let mut socket = WebSocket::builder()
-        .adapter(server.connect().await)
+        .backend(server.connect().await)
         .observer(observer.clone())
         .codec(Plaintext)
         .heartbeat_interval(Duration::from_millis(500))
@@ -188,7 +188,7 @@ async fn heartbeat() {
 async fn timeout_server() {
     let server = EchoServer::with_builder(|socket| {
         WebSocket::builder()
-            .adapter(socket)
+            .backend(socket)
             .codec(Plaintext)
             .heartbeat_interval(Duration::from_secs(5))
             .idle_timeout(Duration::from_secs(1))
@@ -208,7 +208,7 @@ async fn timeout_server() {
 async fn timeout_client() {
     let server = EchoServer::with_builder(|socket| {
         WebSocket::builder()
-            .adapter(socket)
+            .backend(socket)
             .codec(Plaintext)
             .heartbeat_interval(Duration::from_secs(5))
             .idle_timeout(Duration::from_secs(15))
@@ -217,7 +217,7 @@ async fn timeout_client() {
     .await;
 
     let mut socket = WebSocket::builder()
-        .adapter(server.connect().await)
+        .backend(server.connect().await)
         .codec(Plaintext)
         .heartbeat_interval(Duration::from_secs(5))
         .idle_timeout(Duration::from_secs(1))
