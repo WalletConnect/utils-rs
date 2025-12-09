@@ -1,6 +1,12 @@
 use wc_metrics::{
-    enum_ordinalize::Ordinalize, gauge, BoolLabel, EnumLabel, OptionalBoolLabel, OptionalEnumLabel,
-    OptionalStringLabel, StringLabel,
+    enum_ordinalize::Ordinalize,
+    gauge,
+    BoolLabel,
+    EnumLabel,
+    OptionalBoolLabel,
+    OptionalEnumLabel,
+    OptionalStringLabel,
+    StringLabel,
 };
 
 #[derive(Clone, Copy, Debug, Ordinalize)]
