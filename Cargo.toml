@@ -23,6 +23,7 @@ full = [
   "geoip",
   "metrics",
   "rate_limit",
+  "websocket"
 ]
 alloc = ["dep:alloc"]
 analytics = ["dep:analytics"]
@@ -35,6 +36,7 @@ metrics_exporter_prometheus = ["metrics/exporter_prometheus"]
 alloc_metrics = ["alloc/metrics"]
 profiler = ["alloc/profiler"]
 rate_limit = ["dep:rate_limit"]
+websocket = ["dep:websocket"]
 
 [workspace.dependencies]
 aws-sdk-s3 = "1.21.0"
@@ -47,6 +49,7 @@ future = { path = "./crates/future", optional = true }
 geoip = { path = "./crates/geoip", optional = true }
 metrics = { package = "wc_metrics", path = "./crates/metrics", optional = true }
 rate_limit = { path = "./crates/rate_limit", optional = true }
+websocket = { path = "./crates/websocket", optional = true }
 
 [dev-dependencies]
 anyhow = "1"

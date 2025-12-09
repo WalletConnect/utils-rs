@@ -13,3 +13,5 @@ pub use geoip;
 pub use metrics;
 #[cfg(feature = "rate_limit")]
 pub use rate_limit;
+#[cfg(feature = "websocket")]
+pub use websocket;
