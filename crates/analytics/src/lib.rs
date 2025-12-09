@@ -211,9 +211,5 @@ pub fn noop_collector<T>() -> BatchCollector<T>
 where
     T: AnalyticsEvent,
 {
-    BatchCollector::new(
-        Default::default(),
-        serializers::NoopBatchFactory,
-        NoopExporter,
-    )
+    BatchCollector::new(Default::default(), NoopBatchFactory, NoopExporter)
 }
