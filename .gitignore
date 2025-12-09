@@ -11,3 +11,5 @@ target/
 
 # Helix editor configuration
 .helix
+
+/Cargo.lock
