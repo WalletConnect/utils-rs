@@ -17,6 +17,11 @@ tap = "1.0"
 
 chrono = { version = "0.4" }
 aws-sdk-s3.workspace = true
-bytes = "1.5"
-parquet = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32", default-features = false, features = ["flate2-rust_backened"]  }
-parquet_derive = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }
+bytes = "1.11"
+
+# Parquet serialization
+arrow = "57.1"
+parquet = { version = "57.1", default-features = false, features = ["arrow", "flate2-rust_backened"]  }
+parquet_derive = { version = "57.1" }
+serde_arrow = { version = "0.13", features = ["arrow-57"] }
+serde = { version = "1.0", features = ["derive", "rc"] }

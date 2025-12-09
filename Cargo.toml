@@ -12,7 +12,7 @@ members = [
 ]
 
 [features]
-default = []
+default = ["full"]
 full = [
   "alloc",
   "analytics",
@@ -71,3 +71,12 @@ required-features = ["alloc", "metrics"]
 [[example]]
 name = "geoblock"
 required-features = ["geoblock"]
+
+[patch.crates-io]
+arrow = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }
+arrow-array = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }
+arrow-buffer = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }
+arrow-data = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }
+arrow-schema = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }
+parquet = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }
+parquet_derive = { git = "https://github.com/WalletConnect/arrow-rs.git", rev = "e862f32" }

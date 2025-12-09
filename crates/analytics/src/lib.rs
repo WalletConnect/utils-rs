@@ -9,7 +9,7 @@ use {
 pub use {
     collectors::{BatchCollector, CollectionError, CollectorConfig},
     exporters::{AwsConfig, AwsError, AwsExporter, NoopExporter},
-    serializers::{NoopBatchFactory, ParquetBatchFactory, ParquetConfig, ParquetError},
+    serializers::{parquet, NoopBatch, NoopBatchFactory},
 };
 
 mod collectors;
@@ -211,5 +211,9 @@ pub fn noop_collector<T>() -> BatchCollector<T>
 where
     T: AnalyticsEvent,
 {
-    BatchCollector::new(Default::default(), NoopBatchFactory, NoopExporter)
+    BatchCollector::new(
+        Default::default(),
+        serializers::NoopBatchFactory,
+        NoopExporter,
+    )
 }

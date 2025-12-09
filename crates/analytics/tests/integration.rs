@@ -1,18 +1,26 @@
 use {
+    ::parquet::{
+        file::reader::{FileReader as _, SerializedFileReader},
+        record::RecordReader as _,
+    },
     analytics::{
+        parquet,
         AnalyticsExt,
+        Batch,
         BatchCollector,
+        BatchFactory,
         BatchObserver,
         CollectionObserver,
         Collector,
         CollectorConfig,
         ExportObserver,
         Exporter,
-        ParquetBatchFactory,
-        ParquetConfig,
     },
     async_trait::async_trait,
-    parquet_derive::ParquetRecordWriter,
+    bytes::Bytes,
+    parquet_derive::{ParquetRecordReader, ParquetRecordWriter},
+    serde::{Deserialize, Serialize},
+    serde_arrow::schema::TracingOptions,
     std::{
         sync::{
             atomic::{AtomicUsize, Ordering},
@@ -20,7 +28,7 @@ use {
         },
         time::Duration,
     },
-    tokio::sync::{mpsc, mpsc::error::TrySendError},
+    tokio::sync::mpsc::{self, error::TrySendError},
 };
 
 #[derive(Clone)]
@@ -40,10 +48,12 @@ impl Exporter for MockExporter {
     }
 }
 
-#[derive(ParquetRecordWriter)]
-struct DataA {
+#[derive(
+    Debug, Clone, ParquetRecordWriter, ParquetRecordReader, Serialize, Deserialize, PartialEq, Eq,
+)]
+struct Record {
     a: u32,
-    b: &'static str,
+    b: String,
     c: bool,
 }
 
@@ -56,17 +66,19 @@ async fn export_by_timeout() {
             export_interval: Duration::from_millis(200),
             ..Default::default()
         },
-        ParquetBatchFactory::new(ParquetConfig {
+        parquet::native::BatchFactory::new(parquet::native::Config {
             batch_capacity: 128,
             alloc_buffer_size: 8192,
-        }),
+            ..Default::default()
+        })
+        .unwrap(),
         MockExporter(tx),
     );
 
     collector
-        .collect(DataA {
+        .collect(Record {
             a: 1,
-            b: "foo",
+            b: "foo".into(),
             c: true,
         })
         .unwrap();
@@ -91,25 +103,27 @@ async fn export_by_num_rows() {
             export_interval: Duration::from_millis(200),
             ..Default::default()
         },
-        ParquetBatchFactory::new(ParquetConfig {
+        parquet::native::BatchFactory::new(parquet::native::Config {
             batch_capacity: 2,
             alloc_buffer_size: 8192,
-        }),
+            ..Default::default()
+        })
+        .unwrap(),
         MockExporter(tx),
     );
 
     collector
-        .collect(DataA {
+        .collect(Record {
             a: 1,
-            b: "foo",
+            b: "foo".into(),
             c: true,
         })
         .unwrap();
 
     collector
-        .collect(DataA {
+        .collect(Record {
             a: 2,
-            b: "bar",
+            b: "bar".into(),
             c: false,
         })
         .unwrap();
@@ -163,27 +177,29 @@ async fn observability() {
             export_interval: Duration::from_millis(200),
             ..Default::default()
         },
-        ParquetBatchFactory::new(ParquetConfig {
+        parquet::native::BatchFactory::new(parquet::native::Config {
             batch_capacity: 2,
             alloc_buffer_size: 8192,
+            ..Default::default()
         })
+        .unwrap()
         .with_observer(observer.clone()),
         MockExporter(tx).with_observer(observer.clone()),
     )
     .with_observer(observer.clone());
 
     collector
-        .collect(DataA {
+        .collect(Record {
             a: 1,
-            b: "foo",
+            b: "foo".into(),
             c: true,
         })
         .unwrap();
 
     collector
-        .collect(DataA {
+        .collect(Record {
             a: 2,
-            b: "bar",
+            b: "bar".into(),
             c: false,
         })
         .unwrap();
@@ -199,4 +215,79 @@ async fn observability() {
     assert_eq!(observer.batch_push.load(Ordering::SeqCst), 2);
     assert_eq!(observer.batch_serialization.load(Ordering::SeqCst), 1);
     assert_eq!(observer.collection.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn parquet_schema() {
+    let schema_str = "
+        message rust_schema {
+            REQUIRED INT32 a (INTEGER(32, false));
+            REQUIRED BINARY b (STRING);
+            REQUIRED BOOLEAN c;
+        }
+    ";
+
+    let from_str = parquet::schema_from_str(schema_str).unwrap();
+    let from_native_writer = parquet::schema_from_native_writer::<Record>().unwrap();
+    let from_serde_arrow = parquet::schema_from_serde_arrow::<Record>(
+        "rust_schema",
+        TracingOptions::new().strings_as_large_utf8(false),
+    )
+    .unwrap();
+
+    assert_eq!(from_str, from_native_writer);
+    assert_eq!(from_str, from_serde_arrow);
+}
+
+#[test]
+fn parquet_native_serialization() {
+    verify_parquet_serialization(parquet::native::BatchFactory::new(Default::default()).unwrap());
+}
+
+#[test]
+fn parquet_serde_serialization() {
+    verify_parquet_serialization(parquet::serde::BatchFactory::new(Default::default()).unwrap());
+}
+
+fn verify_parquet_serialization(factory: impl BatchFactory<Record>) {
+    let expected_data = generate_records();
+    let mut batch = factory.create().unwrap();
+
+    for data in &expected_data {
+        batch.push(data.clone()).unwrap();
+    }
+
+    let actual_data = read_records(batch.serialize().unwrap().into(), expected_data.len());
+    assert_eq!(actual_data, expected_data);
+}
+
+fn generate_records() -> Vec<Record> {
+    vec![
+        Record {
+            a: 1,
+            b: "foo".into(),
+            c: true,
+        },
+        Record {
+            a: 2,
+            b: "bar".into(),
+            c: false,
+        },
+    ]
+}
+
+fn read_records(serialized: Bytes, num_records: usize) -> Vec<Record> {
+    let mut samples = Vec::new();
+    let reader = SerializedFileReader::new(serialized).unwrap();
+    let mut row_group = reader.get_row_group(0).unwrap();
+    samples
+        .read_from_row_group(&mut *row_group, num_records)
+        .unwrap();
+    samples
+}
+
+// Ensure `parquet` used allows writing `Arc<str>` values.
+#[derive(ParquetRecordWriter)]
+struct _RecordWithArcStr {
+    a: Arc<str>,
 }
