@@ -75,7 +75,7 @@ impl ParquetBatchFactory {
 impl<T> BatchFactory<T> for ParquetBatchFactory
 where
     T: AnalyticsEvent,
-    [T]: RecordWriter<T>,
+    for<'a> &'a [T]: RecordWriter<T>,
 {
     type Batch = ParquetBatch<T>;
     type Error = ParquetError;
@@ -85,7 +85,7 @@ where
             .set_compression(Compression::GZIP(Default::default()))
             .build();
         let props = Arc::new(props);
-        let schema = ([] as [T; 0]).schema()?;
+        let schema = (&[] as &[T]).schema()?;
 
         Ok(ParquetBatch {
             capacity: self.config.batch_capacity,
@@ -108,7 +108,7 @@ pub struct ParquetBatch<T> {
 impl<T> Batch<T> for ParquetBatch<T>
 where
     T: AnalyticsEvent,
-    [T]: RecordWriter<T>,
+    for<'a> &'a [T]: RecordWriter<T>,
 {
     type Error = ParquetError;
 
