@@ -9,7 +9,7 @@ use {
 pub use {
     collectors::{BatchCollector, CollectionError, CollectorConfig},
     exporters::{AwsConfig, AwsError, AwsExporter, NoopExporter},
-    serializers::{parquet, NoopBatch, NoopBatchFactory},
+    serializers::*,
 };
 
 mod collectors;

@@ -3,6 +3,7 @@ use {
     std::convert::Infallible,
 };
 
+#[cfg(feature = "parquet")]
 pub mod parquet;
 
 pub struct NoopBatchFactory;

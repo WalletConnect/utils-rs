@@ -10,6 +10,14 @@ use {
     std::{marker::PhantomData, sync::Arc},
 };
 
+/// Returns `parquet` schema based on the [`RecordWriter<T>`] implementation.
+pub fn schema<T>() -> Result<TypePtr, Error>
+where
+    for<'a> &'a [T]: RecordWriter<T>,
+{
+    (&[] as &[T]).schema()
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     /// The maximum number of records the batch can hold. Pushing more records

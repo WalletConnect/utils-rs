@@ -228,8 +228,8 @@ fn parquet_schema() {
     ";
 
     let from_str = parquet::schema_from_str(schema_str).unwrap();
-    let from_native_writer = parquet::schema_from_native_writer::<Record>().unwrap();
-    let from_serde_arrow = parquet::schema_from_serde_arrow::<Record>(
+    let from_native_writer = parquet::native::schema::<Record>().unwrap();
+    let from_serde_arrow = parquet::serde::schema::<Record>(
         "rust_schema",
         TracingOptions::new().strings_as_large_utf8(false),
     )
@@ -284,10 +284,4 @@ fn read_records(serialized: Bytes, num_records: usize) -> Vec<Record> {
         .read_from_row_group(&mut *row_group, num_records)
         .unwrap();
     samples
-}
-
-// Ensure `parquet` used allows writing `Arc<str>` values.
-#[derive(ParquetRecordWriter)]
-struct _RecordWithArcStr {
-    a: Arc<str>,
 }

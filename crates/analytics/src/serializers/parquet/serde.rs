@@ -1,12 +1,35 @@
-pub use parquet::{self, errors::ParquetError as Error};
 use {
     crate::AnalyticsEvent,
     arrow::datatypes::FieldRef,
-    parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties},
+    parquet::{
+        arrow::{ArrowSchemaConverter, ArrowWriter},
+        basic::Compression,
+        file::properties::WriterProperties,
+        schema::types::TypePtr,
+    },
     serde::{de::DeserializeOwned, Serialize},
     serde_arrow::schema::{SchemaLike, TracingOptions},
     std::{io, marker::PhantomData, sync::Arc},
 };
+pub use {
+    parquet::{self, errors::ParquetError as Error},
+    serde_arrow::Error as SerdeArrowError,
+};
+
+/// Returns `parquet` schema generated with [`serde_arrow`].
+pub fn schema<T>(name: &str, tracing_options: TracingOptions) -> Result<TypePtr, SerdeArrowError>
+where
+    T: Serialize + DeserializeOwned,
+{
+    let fields = Vec::<FieldRef>::from_type::<T>(tracing_options)?;
+    let arrow_schema = serde_arrow::to_record_batch::<Vec<T>>(&fields, &Vec::new())?.schema();
+    let parquet_schema = ArrowSchemaConverter::new()
+        .schema_root(name)
+        .convert(&arrow_schema)
+        .map_err(|err| SerdeArrowError::custom(err.to_string()))?;
+
+    Ok(parquet_schema.root_schema_ptr())
+}
 
 #[derive(Debug, Clone)]
 pub struct Config {

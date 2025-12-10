@@ -3,25 +3,42 @@ name = "analytics"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+full = ["parquet-native", "parquet-serde"]
+parquet-native = ["parquet"]
+parquet-serde = ["parquet", "dep:serde", "dep:serde_arrow"]
+parquet = ["dep:parquet", "dep:arrow"]
+
 [dependencies]
 future = { path = "../future" }
-
 async-trait = "0.1"
-tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
+tokio = { version = "1", default-features = false, features = [
+  "rt",
+  "rt-multi-thread",
+  "sync",
+  "time",
+  "macros",
+] }
 tracing = "0.1"
+
+# Parquet serialization
+parquet = { optional = true, version = "57.1", default-features = false, features = [
+  "arrow",
+  "flate2-rust_backened",
+] }
+arrow = { optional = true, version = "57.1" }
+serde_arrow = { optional = true, version = "0.13", features = ["arrow-57"] }
+serde = { optional = true, version = "1.0", features = ["derive", "rc"] }
 
 # Misc
 thiserror = "1.0"
 anyhow = "1"
 tap = "1.0"
-
 chrono = { version = "0.4" }
 aws-sdk-s3.workspace = true
 bytes = "1.11"
 
-# Parquet serialization
-arrow = "57.1"
-parquet = { version = "57.1", default-features = false, features = ["arrow", "flate2-rust_backened"]  }
-parquet_derive = { version = "57.1" }
-serde_arrow = { version = "0.13", features = ["arrow-57"] }
-serde = { version = "1.0", features = ["derive", "rc"] }
+[dev-dependencies]
+analytics = { path = ".", features = ["full"] }
+parquet_derive = "57.1"
