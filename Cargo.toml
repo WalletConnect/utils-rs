@@ -10,7 +10,7 @@ license = "MIT"
 members = ["crates/*"]
 
 [features]
-default = ["full"]
+default = []
 full = [
   "alloc",
   "analytics",
