@@ -59,7 +59,7 @@ tokio = { version = "1", features = ["full"] }
 hyper = { version = "1.2.0", features = ["full"] }
 tower = { version = "0.4", features = ["util", "filter"] }
 axum = { workspace = true }
-metrics-exporter-prometheus = { version = "0.15", default-features = false }
+metrics-exporter-prometheus = { version = "0.18", default-features = false }
 
 [[example]]
 name = "alloc_profiler"

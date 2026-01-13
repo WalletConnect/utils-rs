@@ -10,7 +10,7 @@ exporter_prometheus = ["metrics-exporter-prometheus"]
 
 [dependencies]
 metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.17", default-features = false, optional = true }
+metrics-exporter-prometheus = { version = "0.18", default-features = false, optional = true }
 smallvec = "1"
 parking_lot = "0.12"
 enum-ordinalize = "4.3"
@@ -20,7 +20,7 @@ futures = "0.3"
 
 [dev-dependencies]
 wc_metrics = { path = "./" }
-metrics-exporter-prometheus = "0.17"
+metrics-exporter-prometheus = "0.18"
 prometheus-parse = "0.2"
 tikv-jemalloc-ctl = { version = "0.5", features = ["use_std"] }
 tikv-jemallocator = "0.5"
