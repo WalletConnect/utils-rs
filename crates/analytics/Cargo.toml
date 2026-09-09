@@ -18,7 +18,7 @@ tap = "1.0"
 chrono = { version = "0.4" }
 aws-sdk-s3.workspace = true
 bytes = "1.5"
-parquet = { version = "57.1", default-features = false, features = ["flate2-rust_backened"]  }
+parquet = { version = "59", default-features = false, features = ["flate2-rust_backened"] }
 
 [dev-dependencies]
-parquet_derive = "57.1"
+parquet_derive = "59"

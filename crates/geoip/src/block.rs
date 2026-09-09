@@ -72,10 +72,7 @@ impl ZoneFilter {
             .lookup_geo_data_raw(addr)
             .map_err(|_| Error::UnableToExtractGeoData)?;
 
-        let country = geo_data
-            .country
-            .and_then(|country| country.iso_code)
-            .ok_or(Error::CountryNotFound)?;
+        let country = geo_data.country.iso_code.ok_or(Error::CountryNotFound)?;
 
         let zone_blocked = self.blocked_zones.iter().any(|blocked_zone| {
             if blocked_zone.country == country {
@@ -84,17 +81,13 @@ impl ZoneFilter {
                 } else {
                     geo_data
                         .subdivisions
-                        .as_deref()
-                        .is_some_and(|subdivisions| {
-                            subdivisions
+                        .iter()
+                        .filter_map(|sub| sub.iso_code)
+                        .any(|sub| {
+                            blocked_zone
+                                .subdivisions
                                 .iter()
-                                .filter_map(|sub| sub.iso_code)
-                                .any(|sub| {
-                                    blocked_zone
-                                        .subdivisions
-                                        .iter()
-                                        .any(|blocked_sub| sub.eq_ignore_ascii_case(blocked_sub))
-                                })
+                                .any(|blocked_sub| sub.eq_ignore_ascii_case(blocked_sub))
                         })
                 }
             } else {

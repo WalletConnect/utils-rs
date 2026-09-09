@@ -39,7 +39,10 @@ rate_limit = ["dep:rate_limit"]
 websocket = ["dep:websocket"]
 
 [workspace.dependencies]
-aws-sdk-s3 = "1.21.0"
+aws-sdk-s3 = { version = "1.137", default-features = false, features = [
+    "rt-tokio",
+    "default-https-client",
+] }
 axum = "0.8.7"
 
 [dependencies]
