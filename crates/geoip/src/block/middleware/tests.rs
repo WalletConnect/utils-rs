@@ -16,50 +16,31 @@ async fn handle(_request: Request<Body>) -> Result<Response<Body>, Infallible> {
 
 fn resolve_ip_no_subs(_addr: IpAddr) -> City<'static> {
     City {
-        city: None,
-        continent: None,
-        country: Some(geoip2::city::Country {
-            geoname_id: None,
-            is_in_european_union: None,
+        country: geoip2::city::Country {
             iso_code: Some("CU"),
-            names: None,
-        }),
-        location: None,
-        postal: None,
-        registered_country: None,
-        represented_country: None,
-        subdivisions: None,
-        traits: None,
+            ..Default::default()
+        },
+        ..Default::default()
     }
 }
 
 fn resolve_ip(_addr: IpAddr) -> City<'static> {
     City {
-        city: None,
-        continent: None,
-        country: Some(geoip2::city::Country {
-            geoname_id: None,
-            is_in_european_union: None,
+        country: geoip2::city::Country {
             iso_code: Some("CU"),
-            names: None,
-        }),
-        location: None,
-        postal: None,
-        registered_country: None,
-        represented_country: None,
-        subdivisions: Some(vec![
+            ..Default::default()
+        },
+        subdivisions: vec![
             geoip2::city::Subdivision {
-                geoname_id: None,
                 iso_code: Some("12"),
-                names: None,
+                ..Default::default()
             },
             geoip2::city::Subdivision {
-                geoname_id: None,
                 iso_code: Some("34"),
-                names: None,
+                ..Default::default()
             },
-        ]),
-        traits: None,
+        ],
+        ..Default::default()
     }
 }
 

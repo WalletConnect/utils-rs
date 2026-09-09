@@ -20,7 +20,7 @@ thiserror = "1.0"
 futures = "0.3"
 bytes = "1.5"
 aws-sdk-s3.workspace = true
-maxminddb = "0.23"
+maxminddb = "0.27"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

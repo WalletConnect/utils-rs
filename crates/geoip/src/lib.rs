@@ -116,7 +116,10 @@ pub enum MaxMindResolverError {
     ByteStream(Box<ByteStreamError>),
 
     #[error("MaxMind DB lookup error: {0}")]
-    MaxMindDB(#[from] maxminddb::MaxMindDBError),
+    MaxMindDB(#[from] maxminddb::MaxMindDbError),
+
+    #[error("Address not found in MaxMind DB")]
+    AddressNotFound,
 }
 
 impl From<SdkError<GetObjectError>> for MaxMindResolverError {
@@ -165,29 +168,27 @@ impl Resolver for MaxMindResolver {
     type Error = MaxMindResolverError;
 
     fn lookup_geo_data_raw(&self, addr: IpAddr) -> Result<City<'_>, Self::Error> {
-        self.reader.lookup::<City>(addr).map_err(Into::into)
+        self.reader
+            .lookup(addr)?
+            .decode::<City>()?
+            .ok_or(MaxMindResolverError::AddressNotFound)
     }
 
     fn lookup_geo_data(&self, addr: IpAddr) -> Result<Data, Self::Error> {
         let lookup_data = self.lookup_geo_data_raw(addr)?;
 
+        let region: Vec<String> = lookup_data
+            .subdivisions
+            .into_iter()
+            .filter_map(|div| div.iso_code)
+            .map(Into::into)
+            .collect();
+
         Ok(Data {
-            continent: lookup_data
-                .continent
-                .and_then(|continent| continent.code.map(Into::into)),
-            country: lookup_data
-                .country
-                .and_then(|country| country.iso_code.map(Into::into)),
-            region: lookup_data.subdivisions.map(|divs| {
-                divs.into_iter()
-                    .filter_map(|div| div.iso_code)
-                    .map(Into::into)
-                    .collect()
-            }),
-            city: lookup_data
-                .city
-                .and_then(|city| city.names)
-                .and_then(|city_names| city_names.get("en").copied().map(Into::into)),
+            continent: lookup_data.continent.code.map(Into::into),
+            country: lookup_data.country.iso_code.map(Into::into),
+            region: (!region.is_empty()).then_some(region),
+            city: lookup_data.city.names.english.map(Into::into),
         })
     }
 }

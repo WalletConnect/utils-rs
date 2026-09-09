@@ -16,20 +16,11 @@ async fn handle(_request: Request<Body>) -> Result<Response<Body>, Infallible> {
 
 fn resolve_ip(_addr: IpAddr) -> geoip2::City<'static> {
     geoip2::City {
-        city: None,
-        continent: None,
-        country: Some(geoip2::city::Country {
-            geoname_id: None,
-            is_in_european_union: None,
+        country: geoip2::city::Country {
             iso_code: Some("IR"),
-            names: None,
-        }),
-        location: None,
-        postal: None,
-        registered_country: None,
-        represented_country: None,
-        subdivisions: None,
-        traits: None,
+            ..Default::default()
+        },
+        ..Default::default()
     }
 }
 
