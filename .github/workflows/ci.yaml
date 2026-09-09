@@ -29,11 +29,11 @@ jobs:
           - name: "Clippy"
             cmd: clippy
             args: --workspace --all-features --all-targets -- -D warnings
-            rust: nightly
+            rust: nightly-2026-02-11
           - name: "Formatting"
             cmd: fmt
             args: --all -- --check
-            rust: nightly
+            rust: nightly-2026-02-11
           - name: "Tests"
             cmd: nextest
             args: run --workspace --all-features --retries 3
