@@ -31,8 +31,10 @@ mod tests;
 /// This choice decides what the geo-block is actually enforcing, so it is
 /// explicit rather than implied. A blocked visitor only stays blocked if the
 /// address cannot be chosen by the visitor.
+type ExtractClientIp = dyn Fn(&HeaderMap, &Extensions) -> Option<IpAddr> + Send + Sync;
+
 #[derive(Clone)]
-pub struct ClientIpExtractor(Arc<dyn Fn(&HeaderMap, &Extensions) -> Option<IpAddr> + Send + Sync>);
+pub struct ClientIpExtractor(Arc<ExtractClientIp>);
 
 impl ClientIpExtractor {
     /// Resolve the client address with `f`.

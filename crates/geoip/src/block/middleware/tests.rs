@@ -273,7 +273,7 @@ async fn test_configured_extractor_beats_spoofed_forwarding_headers() {
 
     let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
 
-    // Every header `InsecureClientIp` consults, all naming an unblocked country.
+    // Every header `InsecureClientIp` reads, all naming an unblocked country.
     let request = Request::builder()
         .header("X-Forwarded-For", CLAIMED_IP)
         .header("Forwarded", format!("for={CLAIMED_IP}"))
