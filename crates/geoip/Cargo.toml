@@ -25,3 +25,7 @@ maxminddb = "0.27"
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 axum = { workspace = true }
+# `util` carries `ServiceExt` and `ServiceBuilder::service_fn`, which every
+# middleware test drives the layer through. The non-dev dependency deliberately
+# stays featureless: the middleware itself needs none of it.
+tower = { version = "0.4", features = ["util"] }
