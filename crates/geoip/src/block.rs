@@ -75,7 +75,7 @@ impl ZoneFilter {
         let country = geo_data.country.iso_code.ok_or(Error::CountryNotFound)?;
 
         let zone_blocked = self.blocked_zones.iter().any(|blocked_zone| {
-            if blocked_zone.country == country {
+            if blocked_zone.country.eq_ignore_ascii_case(country) {
                 if blocked_zone.subdivisions.is_empty() {
                     true
                 } else {
