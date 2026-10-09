@@ -77,6 +77,27 @@ async fn test_country_blocked() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
+/// A lowercase country code is the same block as the uppercase code MaxMind
+/// returns.
+#[tokio::test]
+async fn test_country_blocked_ignores_ascii_case() {
+    let resolver = LocalResolver::new(Some(resolve_ip), None);
+    let blocked_countries = vec!["cu".into()];
+
+    let geoblock = GeoBlockLayer::new(resolver, blocked_countries, BlockingPolicy::Block);
+
+    let mut service = ServiceBuilder::new().layer(geoblock).service_fn(handle);
+
+    let request = Request::builder()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
 /// Test that a blocking list with no subdivisions doesn't block if the
 /// country doesn't match.
 #[tokio::test]
