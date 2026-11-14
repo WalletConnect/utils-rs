@@ -1,7 +1,10 @@
 use {
     crate::{AnalyticsEvent, Batch, BatchFactory, Collector, Exporter},
     std::{marker::PhantomData, pin::pin, time::Duration},
-    tokio::sync::{mpsc, mpsc::error::TrySendError},
+    tokio::{
+        sync::{mpsc, mpsc::error::TrySendError, oneshot},
+        task::{JoinError, JoinHandle, JoinSet},
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -14,6 +17,20 @@ enum InternalError {
 
     #[error("Serialization failed")]
     Serialization,
+}
+
+pub struct ShutdownHandle {
+    shutdown_tx: oneshot::Sender<()>,
+    task: JoinHandle<()>,
+}
+
+impl ShutdownHandle {
+    /// Closes the queue and waits for exports. Batch/export failures are
+    /// logged.
+    pub async fn shutdown(self) -> Result<(), JoinError> {
+        let _ = self.shutdown_tx.send(());
+        self.task.await
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -66,17 +83,26 @@ where
         B::Error: std::error::Error,
         E: Exporter,
     {
+        Self::new_with_shutdown(config, batch_factory, exporter).0
+    }
+
+    /// Dropping the shutdown handle leaves the collector running.
+    pub fn new_with_shutdown<B, E>(
+        config: CollectorConfig,
+        batch_factory: B,
+        exporter: E,
+    ) -> (Self, ShutdownHandle)
+    where
+        B: BatchFactory<T>,
+        B::Error: std::error::Error,
+        E: Exporter,
+    {
         let (data_tx, data_rx) = mpsc::channel(config.data_queue_capacity);
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let event_loop = EventLoop::new(batch_factory, exporter, config);
+        let task = tokio::spawn(event_loop.run(data_rx, shutdown_rx));
 
-        tokio::spawn(async move {
-            let event_loop = EventLoop::new(batch_factory, exporter, config);
-
-            if let Err(err) = event_loop.run(data_rx).await {
-                tracing::warn!(?err, "analytics event loop failed");
-            }
-        });
-
-        Self { data_tx }
+        (Self { data_tx }, ShutdownHandle { shutdown_tx, task })
     }
 }
 
@@ -95,6 +121,7 @@ struct EventLoop<T, B, E> {
     batch_factory: B,
     exporter: E,
     config: CollectorConfig,
+    exports: JoinSet<Result<(), InternalError>>,
     _marker: PhantomData<T>,
 }
 
@@ -111,13 +138,29 @@ where
             batch_factory,
             exporter,
             config,
+            exports: JoinSet::new(),
             _marker: PhantomData,
         }
     }
 
-    async fn run(self, data_rx: mpsc::Receiver<T>) -> Result<(), InternalError> {
+    async fn run(mut self, data_rx: mpsc::Receiver<T>, shutdown_rx: oneshot::Receiver<()>) {
+        if let Err(err) = self.collect(data_rx, shutdown_rx).await {
+            tracing::warn!(?err, "analytics event loop failed");
+        }
+
+        while let Some(result) = self.exports.join_next().await {
+            Self::finish_export(result);
+        }
+    }
+
+    async fn collect(
+        &mut self,
+        data_rx: mpsc::Receiver<T>,
+        mut shutdown_rx: oneshot::Receiver<()>,
+    ) -> Result<(), InternalError> {
         let mut data_rx = pin!(data_rx);
         let mut export_interval = pin!(tokio::time::interval(self.config.export_interval));
+        let mut shutdown_pending = true;
 
         let mut current_batch = self
             .batch_factory
@@ -126,6 +169,17 @@ where
 
         loop {
             tokio::select! {
+                result = &mut shutdown_rx, if shutdown_pending => {
+                    shutdown_pending = false;
+                    if result.is_ok() {
+                        data_rx.close();
+                    }
+                },
+
+                Some(result) = self.exports.join_next(), if !self.exports.is_empty() => {
+                    Self::finish_export(result);
+                },
+
                 data = data_rx.recv() => match data {
                     Some(data) => {
                         if let Err(err) = current_batch.push(data) {
@@ -147,7 +201,7 @@ where
                         }
                     },
 
-                    // The transmitter has been dropped. Export current batch and shutdown.
+                    // The channel is drained. Export the final partial batch.
                     None => {
                         return self.export_batch(&mut current_batch);
                     },
@@ -169,7 +223,7 @@ where
         Ok(std::mem::replace(current_batch, next_batch))
     }
 
-    fn export_batch(&self, current_batch: &mut B::Batch) -> Result<(), InternalError> {
+    fn export_batch(&mut self, current_batch: &mut B::Batch) -> Result<(), InternalError> {
         if current_batch.is_empty() {
             return Ok(());
         }
@@ -177,25 +231,26 @@ where
         let current_batch = self.replace_batch(current_batch)?;
         let exporter = self.exporter.clone();
 
-        tokio::spawn(async move {
-            let result = async {
-                let data = tokio::task::spawn_blocking(move || current_batch.serialize())
-                    .await
-                    .map_err(|_| InternalError::Serialization)?
-                    .map_err(|err| InternalError::Batch(err.to_string()))?;
+        self.exports.spawn(async move {
+            let data = tokio::task::spawn_blocking(move || current_batch.serialize())
+                .await
+                .map_err(|_| InternalError::Serialization)?
+                .map_err(|err| InternalError::Batch(err.to_string()))?;
 
-                exporter
-                    .export(data)
-                    .await
-                    .map_err(|err| InternalError::Export(err.to_string()))
-            }
-            .await;
-
-            if let Err(err) = result {
-                tracing::warn!(?err, "failed to export batch data");
-            }
+            exporter
+                .export(data)
+                .await
+                .map_err(|err| InternalError::Export(err.to_string()))
         });
 
         Ok(())
+    }
+
+    fn finish_export(result: Result<Result<(), InternalError>, JoinError>) {
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => tracing::warn!(?err, "failed to export batch data"),
+            Err(err) => tracing::warn!(?err, "analytics export task failed"),
+        }
     }
 }

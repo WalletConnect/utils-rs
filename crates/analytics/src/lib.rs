@@ -7,7 +7,7 @@ use {
     tap::Tap,
 };
 pub use {
-    collectors::{BatchCollector, CollectionError, CollectorConfig},
+    collectors::{BatchCollector, CollectionError, CollectorConfig, ShutdownHandle},
     exporters::{AwsConfig, AwsError, AwsExporter, NoopExporter},
     serializers::{NoopBatchFactory, ParquetBatchFactory, ParquetConfig, ParquetError},
 };

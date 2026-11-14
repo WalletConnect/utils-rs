@@ -2,6 +2,7 @@ use {
     analytics::{
         AnalyticsExt,
         BatchCollector,
+        BatchFactory,
         BatchObserver,
         CollectionObserver,
         Collector,
@@ -12,6 +13,10 @@ use {
         ParquetConfig,
     },
     async_trait::async_trait,
+    parquet::{
+        file::reader::{FileReader, SerializedFileReader},
+        record::RowAccessor,
+    },
     parquet_derive::ParquetRecordWriter,
     std::{
         sync::{
@@ -20,7 +25,7 @@ use {
         },
         time::Duration,
     },
-    tokio::sync::{mpsc, mpsc::error::TrySendError},
+    tokio::sync::{mpsc, mpsc::error::TrySendError, oneshot},
 };
 
 #[derive(Clone)]
@@ -199,4 +204,169 @@ async fn observability() {
     assert_eq!(observer.batch_push.load(Ordering::SeqCst), 2);
     assert_eq!(observer.batch_serialization.load(Ordering::SeqCst), 1);
     assert_eq!(observer.collection.load(Ordering::SeqCst), 2);
+}
+
+type PendingExport = (Vec<u8>, oneshot::Sender<Result<(), std::io::Error>>);
+
+#[derive(Clone)]
+struct ControlledExporter(mpsc::Sender<PendingExport>);
+
+#[async_trait]
+impl Exporter for ControlledExporter {
+    type Error = std::io::Error;
+
+    async fn export(self, data: Vec<u8>) -> Result<(), Self::Error> {
+        let (tx, rx) = oneshot::channel();
+        self.0.send((data, tx)).await.unwrap();
+        rx.await.unwrap()
+    }
+}
+
+fn record_ids(data: Vec<u8>) -> Vec<u32> {
+    SerializedFileReader::new(bytes::Bytes::from(data))
+        .unwrap()
+        .get_row_iter(None)
+        .unwrap()
+        .map(|row| row.unwrap().get_uint(0).unwrap())
+        .collect()
+}
+
+#[tokio::test]
+async fn shutdown_drains_records_and_waits_for_exports() {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        let (tx, mut rx) = mpsc::channel(8);
+        let (collector, shutdown) = BatchCollector::new_with_shutdown(
+            CollectorConfig {
+                data_queue_capacity: 3,
+                ..Default::default()
+            },
+            ParquetBatchFactory::new(ParquetConfig {
+                batch_capacity: 2,
+                alloc_buffer_size: 8192,
+            }),
+            ControlledExporter(tx),
+        );
+
+        for a in 0..2 {
+            collector
+                .collect(DataA {
+                    a,
+                    b: "foo",
+                    c: true,
+                })
+                .unwrap();
+        }
+        let (data, first_export) = rx.recv().await.unwrap();
+        let mut ids = record_ids(data);
+        for a in 2..5 {
+            collector
+                .collect(DataA {
+                    a,
+                    b: "foo",
+                    c: true,
+                })
+                .unwrap();
+        }
+
+        let mut shutdown = tokio::spawn(shutdown.shutdown());
+        while ids.len() < 5 {
+            let (data, complete) = rx.recv().await.unwrap();
+            ids.extend(record_ids(data));
+            complete.send(Ok(())).unwrap();
+        }
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut shutdown)
+                .await
+                .is_err()
+        );
+        first_export.send(Ok(())).unwrap();
+        shutdown.await.unwrap().unwrap();
+
+        ids.sort_unstable();
+        assert_eq!(ids, [0, 1, 2, 3, 4]);
+        assert!(matches!(
+            collector.collect(DataA {
+                a: 5,
+                b: "foo",
+                c: true
+            }),
+            Err(analytics::CollectionError::DataChannelClosed)
+        ));
+    })
+    .await
+    .unwrap();
+}
+
+struct FailingBatchFactory {
+    inner: ParquetBatchFactory,
+    creates: AtomicUsize,
+    fail_after: usize,
+}
+
+impl BatchFactory<DataA> for FailingBatchFactory {
+    type Batch = <ParquetBatchFactory as BatchFactory<DataA>>::Batch;
+    type Error = std::io::Error;
+
+    fn create(&self) -> Result<Self::Batch, Self::Error> {
+        if self.creates.fetch_add(1, Ordering::Relaxed) == self.fail_after {
+            return Err(std::io::Error::other("batch failed"));
+        }
+        self.inner.create().map_err(std::io::Error::other)
+    }
+}
+
+#[tokio::test]
+async fn shutdown_waits_for_exports_after_an_error() {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        for fail_after in [2, usize::MAX] {
+            let (tx, mut rx) = mpsc::channel(8);
+            let (collector, shutdown) = BatchCollector::new_with_shutdown(
+                CollectorConfig::default(),
+                FailingBatchFactory {
+                    inner: ParquetBatchFactory::new(ParquetConfig {
+                        batch_capacity: 1,
+                        alloc_buffer_size: 8192,
+                    }),
+                    creates: AtomicUsize::new(0),
+                    fail_after,
+                },
+                ControlledExporter(tx),
+            );
+            collector
+                .collect(DataA {
+                    a: 0,
+                    b: "foo",
+                    c: true,
+                })
+                .unwrap();
+            let (_, first_export) = rx.recv().await.unwrap();
+            collector
+                .collect(DataA {
+                    a: 1,
+                    b: "foo",
+                    c: true,
+                })
+                .unwrap();
+            let blocked_export = if fail_after == 2 {
+                first_export
+            } else {
+                let (_, second_export) = rx.recv().await.unwrap();
+                first_export
+                    .send(Err(std::io::Error::other("upload failed")))
+                    .unwrap();
+                second_export
+            };
+
+            let mut shutdown = tokio::spawn(shutdown.shutdown());
+            assert!(
+                tokio::time::timeout(Duration::from_millis(20), &mut shutdown)
+                    .await
+                    .is_err()
+            );
+            blocked_export.send(Ok(())).unwrap();
+            shutdown.await.unwrap().unwrap();
+        }
+    })
+    .await
+    .unwrap();
 }
